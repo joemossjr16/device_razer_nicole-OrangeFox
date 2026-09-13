@@ -1,0 +1,25 @@
+service nicole_crypto_prep /system/bin/sh /system/bin/nicole_crypto_prep.sh
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot
+
+on early-init
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release 16
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.release_or_codename 16
+    exec u:r:recovery:s0 -- /system/bin/resetprop -n ro.build.version.security_patch 2026-09-01
+
+on init
+
+on property:sys.usb.ffs.ready=1
+    start nicole_crypto_prep
+
+on property:twrp.super.symlinks_created=true
+    start nicole_crypto_prep
+
+on property:ro.crypto.state=encrypted
+    start nicole_crypto_prep
+
+on property:crypto.ready=1
+    start nicole_crypto_prep

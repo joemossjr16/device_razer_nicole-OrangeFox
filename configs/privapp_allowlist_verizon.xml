@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <privapp-permissions package="com.motricity.verizon.ssodownloadable">
+      <permission name="android.permission.READ_PHONE_STATE "/>
+      <permission name="android.permission.RECEIVE_SMS"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.oma.dm">
+        <permission name="android.permission.BATTERY_STATS"/>
+        <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.RECOVERY"/>
+        <permission name="android.permission.SHUTDOWN"/>
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.CONNECTIVITY_INTERNAL"/>
+        <permission name="android.permission.REAL_GET_TASKS"/>
+        <permission name="android.permission.INTERACT_ACROSS_USERS"/>
+        <permission name="android.permission.CHANGE_CONFIGURATION"/>
+        <permission name="android.permission.TETHER_PRIVILEGED"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.oma.dm.diag">
+        <permission name="android.permission.BATTERY_STATS"/>
+        <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.SHUTDOWN"/>
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.CONNECTIVITY_INTERNAL"/>
+        <permission name="android.permission.REAL_GET_TASKS"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.oma.dm.report">
+        <permission name="android.permission.BATTERY_STATS"/>
+        <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.SHUTDOWN"/>
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.CONNECTIVITY_INTERNAL"/>
+        <permission name="android.permission.REAL_GET_TASKS"/>
+        <permission name="android.permission.INTERACT_ACROSS_USERS"/>
+        <permission name="android.permission.RECOVERY"/>
+        <permission name="android.permission.TETHER_PRIVILEGED"/>
+        <permission name="deepdive.permission.ENABLE_LOCATION_MODE_BATTERY_SAVING"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.vzw.ecid">
+      <permission name="android.permission.READ_PHONE_STATE"/>
+      <permission name="android.permission.READ_CALL_LOG"/>
+      <permission name="android.permission.CALL_PHONE"/>
+      <permission name="android.permission.PROCESS_OUTGOING_CALLS"/>
+      <permission name="android.permission.RECEIVE_SMS"/>
+      <permission name="android.permission.SEND_SMS"/>
+      <permission name="android.permission.READ_CONTACTS"/>
+      <permission name="android.permission.WRITE_CONTACTS"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.verizon.mips.services">
+      <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+      <permission name="android.permission.BATTERY_STATS"/>
+      <permission name="android.permission.REAL_GET_TASKS"/>
+      <permission name="android.permission.INSTALL_PACKAGES"/>
+      <permission name="android.permission.MANAGE_USERS"/>
+      <permission name="android.permission.PACKAGE_USAGE_STATS"/>
+      <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+      <permission name="android.permission.MODIFY_PHONE_STATE"/>
+      <permission name="android.permission.DELETE_PACKAGES"/>
+      <permission name="android.permission.REBOOT"/>
+      <permission name="android.permission.READ_NETWORK_USAGE_HISTORY"/>
+      <permission name="android.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS"/>
+      <permission name="android.permission.MANAGE_SUBSCRIPTION_PLANS"/>
+      <permission name="android.permission.SET_TIME"/>
+      <permission name="com.verizon.settings.permission.RECEIVE_UPDATED_SETTING"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.verizon.vzwavs">
+      <permission name="android.permission.READ_PHONE_STATE"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.vzw.hss.myverizon">
+        <permission name="android.permission.CONNECTIVITY_INTERNAL"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS"/>
+        <permission name="android.permission.BATTERY_STATS"/>
+        <permission name="android.permission.READ_NETWORK_USAGE_HISTORY"/>
+        <permission name="android.permission.PACKAGE_USAGE_STATS"/>
+        <permission name="android.permission.CLEAR_APP_CACHE"/>
+        <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+        <permission name="android.permission.READ_PHONE_STATE"/>
+        <permission name="android.permission.READ_CALL_LOG"/>
+        <permission name="android.permission.CALL_PHONE"/>
+        <permission name="android.permission.PROCESS_OUTGOING_CALLS"/>
+        <permission name="android.permission.RECEIVE_SMS"/>
+        <permission name="android.permission.SEND_SMS"/>
+        <permission name="android.permission.READ_SMS"/>
+        <permission name="android.permission.WRITE_SMS"/>
+        <permission name="android.permission.ACCESS_COARSE_LOCATION"/>
+        <permission name="android.permission.ACCESS_FINE_LOCATION"/>
+        <permission name="com.verizon.settings.permission.RECEIVE_UPDATED_SETTING"/>
+    </privapp-permissions>
+
+    <privapp-permissions package="com.vzw.hss.myverizontabletlte">
+        <permission name="android.permission.READ_PHONE_STATE"/>
+        <permission name="android.permission.READ_CALL_LOG"/>
+        <permission name="android.permission.CALL_PHONE"/>
+        <permission name="android.permission.PROCESS_OUTGOING_CALLS"/>
+        <permission name="android.permission.RECEIVE_SMS"/>
+        <permission name="android.permission.SEND_SMS"/>
+        <permission name="android.permission.READ_SMS"/>
+        <permission name="android.permission.WRITE_SMS"/>
+        <permission name="android.permission.ACCESS_COARSE_LOCATION"/>
+        <permission name="android.permission.ACCESS_FINE_LOCATION"/>
+    </privapp-permissions>
+</permissions>

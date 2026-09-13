@@ -1,0 +1,8 @@
+# Bluetooth
+bluetooth.device.default_name=Razer Edge WiFi
+
+# Radio
+ro.radio.noril=yes
+
+# USB
+vendor.usb.product_string=Razer Edge WiFi

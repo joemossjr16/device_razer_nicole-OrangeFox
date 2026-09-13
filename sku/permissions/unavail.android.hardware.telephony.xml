@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <unavailable-feature name="android.hardware.telephony"/>
+    <unavailable-feature name="android.hardware.telephony.calling"/>
+    <unavailable-feature name="android.hardware.telephony.cdma"/>
+    <unavailable-feature name="android.hardware.telephony.data"/>
+    <unavailable-feature name="android.hardware.telephony.gsm"/>
+    <unavailable-feature name="android.hardware.telephony.messaging"/>
+    <unavailable-feature name="android.hardware.telephony.radio.access"/>
+    <unavailable-feature name="android.hardware.telephony.subscription"/>
+</permissions>

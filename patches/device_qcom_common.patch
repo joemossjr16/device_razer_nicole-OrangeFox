@@ -1,0 +1,12 @@
+diff --git a/gpt-utils/include/gpt-utils.h b/gpt-utils/include/gpt-utils.h
+index c3321df..30e6672 100755
+--- a/gpt-utils/include/gpt-utils.h
++++ b/gpt-utils/include/gpt-utils.h
+@@ -79,6 +79,7 @@ extern "C" {
+ #define AB_SLOT_A_SUFFIX                "_a"
+ #define AB_SLOT_B_SUFFIX                "_b"
+ #define PTN_XBL                         "xbl"
++#define PTN_XBL_CFG                     "xbl_config"
+ #define PTN_SWAP_LIST                   PTN_XBL, \
+             "abl", "aop", "apdp", "cmnlib", "cmnlib64", \
+             "devcfg", "dtbo", "hyp", "keymaster", "msadp", \

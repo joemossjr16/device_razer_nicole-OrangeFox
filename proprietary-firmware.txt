@@ -1,0 +1,20 @@
+# All firmware images below are extracted from the release mentioned in proprietary-files.txt
+
+abl.img;AB
+aop.img;AB
+bluetooth.img;AB
+cpucp.img;AB
+devcfg.img;AB
+dsp.img;AB
+featenabler.img;AB
+hyp.img;AB
+keymaster.img;AB
+modem.img;AB
+multiimgoem.img;AB
+qupfw.img;AB
+shrm.img;AB
+tz.img;AB
+uefisecapp.img;AB
+vm-bootsys.img;AB
+xbl.img;AB
+xbl_config.img;AB

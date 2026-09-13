@@ -1,0 +1,93 @@
+diff --git a/Checkpoint.cpp b/Checkpoint.cpp
+index 755f0e3..326681a 100644
+--- a/Checkpoint.cpp
++++ b/Checkpoint.cpp
+@@ -268,6 +268,8 @@ bool cp_needsRollback() {
+ }
+ 
+ bool cp_needsCheckpoint() {
++    // TWRP recovery does not need checkpointing during decryption, avoiding IBootControl hang
++    return false;
+     std::lock_guard<std::mutex> lock(isCheckpointingLock);
+ 
+     // Make sure we only return true during boot. See b/138952436 for discussion
+diff --git a/FsCrypt.cpp b/FsCrypt.cpp
+index 7505e56..3029d13 100644
+--- a/FsCrypt.cpp
++++ b/FsCrypt.cpp
+@@ -487,13 +487,17 @@ install:
+     LOG(INFO) << "Wrote system DE key reference to:" << ref_filename;
+ 
+     KeyBuffer per_boot_key;
+-    if (!generateStorageKey(makeGen(options), &per_boot_key)) return false;
+-    EncryptionPolicy per_boot_policy;
+-    if (!install_storage_key(DATA_MNT_POINT, options, per_boot_key, &per_boot_policy)) return false;
+-    std::string per_boot_ref_filename = std::string("/data") + fscrypt_key_per_boot_ref;
+-    if (!android::vold::writeStringToFile(per_boot_policy.key_raw_ref, per_boot_ref_filename))
+-        return false;
+-    LOG(INFO) << "Wrote per boot key reference to:" << per_boot_ref_filename;
++    if (generateStorageKey(makeGen(options), &per_boot_key)) {
++        EncryptionPolicy per_boot_policy;
++        if (install_storage_key(DATA_MNT_POINT, options, per_boot_key, &per_boot_policy)) {
++            std::string per_boot_ref_filename = std::string("/data") + fscrypt_key_per_boot_ref;
++            if (android::vold::writeStringToFile(per_boot_policy.key_raw_ref, per_boot_ref_filename)) {
++                LOG(INFO) << "Wrote per boot key reference to:" << per_boot_ref_filename;
++            }
++        }
++    } else {
++        LOG(INFO) << "Skipping per_boot_key generation in recovery";
++    }
+ 
+     return true;
+ }
+@@ -515,8 +519,7 @@ bool fscrypt_init_user0() {
+     // entangled with user credentials.  The framework will always prepare CE
+     // storage once CE keys are installed.
+     if (!fscrypt_prepare_user_storage("", 0, 0, android::os::IVold::STORAGE_FLAG_DE)) {
+-        LOG(ERROR) << "Failed to prepare user 0 storage";
+-        return false;
++        LOG(ERROR) << "Failed to prepare user 0 storage (non-fatal in recovery)";
+     }
+ 
+     // If this is a non-FBE device that recently left an emulated mode,
+diff --git a/KeyStorage.cpp b/KeyStorage.cpp
+index 51fc4f6..fa227e6 100644
+--- a/KeyStorage.cpp
++++ b/KeyStorage.cpp
+@@ -356,29 +356,19 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
+     std::lock_guard<std::mutex> lock(key_upgrade_lock);
+ 
+     std::string blob;
+-    // bool already_upgraded = IsKeyCommitPending(dir);
+-    // if (already_upgraded) {
+-    //     LOG(INFO)
+-    //             << blob_file
+-    //             << " was already upgraded and is waiting to be committed; using the upgraded blob";
+-    //     if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
+-    // } else {
+-        // DeleteUpgradedKey(keymaster, upgraded_blob_file);
+-    if (!readFileToString(blob_file, &blob)) return KeymasterOperation();
+-    // }
++    if (pathExists(upgraded_blob_file)) {
++        LOG(INFO) << "Using upgraded blob from " << upgraded_blob_file;
++        if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
++    } else {
++        if (!readFileToString(blob_file, &blob)) return KeymasterOperation();
++    }
+     auto opHandle = keymaster.begin(blob, inParams, outParams);
+     if (!opHandle) return opHandle;
+ 
+     // If key blob wasn't upgraded, nothing left to do.
+-    // if (!opHandle.getUpgradedBlob()) return opHandle;
++    if (!opHandle.getUpgradedBlob()) return opHandle;
+ 
+-    // if (already_upgraded) {
+-    //     LOG(ERROR) << "Unexpected case; already-upgraded key " << upgraded_blob_file
+-    //                << " still requires upgrade";
+-    //     return KeymasterOperation();
+-    // }
+     LOG(INFO) << "Upgrading key: " << blob_file;
+-    
+     if (!writeStringToFile(*opHandle.getUpgradedBlob(), upgraded_blob_file))
+         return KeymasterOperation();
+     // if (cp_needsCheckpoint()) {

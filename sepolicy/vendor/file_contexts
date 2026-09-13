@@ -1,0 +1,6 @@
+# Radio
+/dev/mhi_BHI         u:object_r:radio_device:s0
+/dev/mhi_DIAG        u:object_r:radio_device:s0
+/dev/mhi_DUN         u:object_r:radio_device:s0
+/dev/mhi_LOOPBACK    u:object_r:radio_device:s0
+/dev/mhi_QMI0        u:object_r:radio_device:s0

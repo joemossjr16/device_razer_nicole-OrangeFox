@@ -1,0 +1,364 @@
+diff --git a/etc/init.recovery.service22.rc b/etc/init.recovery.service22.rc
+index 7ba997a..3c09711 100755
+--- a/etc/init.recovery.service22.rc
++++ b/etc/init.recovery.service22.rc
+@@ -1,6 +1,8 @@
+-on boot
+-
+-# For starting recovery on 5.0 and newer
+-service recovery /system/bin/recovery
+-    socket recovery stream 422 system system
+-    seclabel u:r:recovery:s0
++on boot
++
++# For starting recovery on 5.0 and newer
++service recovery /system/bin/recovery
++    socket recovery stream 422 system system
++    seclabel u:r:recovery:s0
++import /init.recovery.disable-services.rc
++import /init.recovery.qcom_decrypt.rc
+diff --git a/gui/gui.cpp b/gui/gui.cpp
+index 874cdd9..a650680 100755
+--- a/gui/gui.cpp
++++ b/gui/gui.cpp
+@@ -1,4 +1,4 @@
+-/*
++﻿/*
+         Copyright 2012 bigbiff/Dees_Troy TeamWin
+         This file is part of TWRP/TeamWin Recovery Project.
+ 
+@@ -788,9 +788,11 @@ extern "C" int gui_loadResources(void)
+ {
+ #ifndef TW_OEM_BUILD
+ 	int check = 0;
+-	DataManager::GetValue(TW_IS_ENCRYPTED, check);
++	DataManager::GetValue(TW_IS_ENCRYPTED, check);
++	LOGINFO("GUI_RESOURCES encrypted=%d before package load\n", check);
+ 	if (check)
+ 	{
++		LOGINFO("GUI_RESOURCES loading decrypt package\n");
+ 		if (PageManager::LoadPackage("TWRP", TWRES "ui.xml", "decrypt"))
+ 		{
+ 			gui_err("base_pkg_err=Failed to load base packages.");
+@@ -958,3 +960,6 @@ extern "C" float get_scale_h()
+ {
+ 	return scale_theme_h;
+ }
++
++
++
+diff --git a/gui/theme/landscape_hdpi/ui.xml b/gui/theme/landscape_hdpi/ui.xml
+index a71387f..9b38198 100755
+--- a/gui/theme/landscape_hdpi/ui.xml
++++ b/gui/theme/landscape_hdpi/ui.xml
+@@ -76,7 +76,7 @@
+ 		<variable name="tw_hide_kb" value="0"/>
+ 		<variable name="screen_width" value="1920"/>
+ 		<variable name="screen_height" value="1200"/>
+-		<variable name="status_height" value="48"/>
++		<variable name="status_height" value="56"/>
+ 		<variable name="header_height" value="192"/>
+ 		<variable name="navbar_height" value="96"/>
+ 		<variable name="content_width" value="1824"/>
+@@ -96,6 +96,7 @@
+ 		<variable name="console_button_x_2" value="1800"/>
+ 		<variable name="col1_x_header" value="144"/>
+ 		<variable name="indent" value="24"/>
++		<variable name="status_indent_left" value="160"/>
+ 		<variable name="col1_x_left" value="48"/>
+ 		<variable name="col2_x_left" value="504"/>
+ 		<variable name="center_x" value="960"/>
+@@ -103,6 +104,7 @@
+ 		<variable name="col2_x_right" value="1416"/>
+ 		<variable name="col_button_right" value="1488"/>
+ 		<variable name="indent_right" value="1896"/>
++		<variable name="status_indent_right" value="1760"/>
+ 		<variable name="tab_height" value="72"/>
+ 		<variable name="tab_indicator_height" value="4"/>
+ 		<variable name="tab4_width" value="480"/>
+@@ -119,9 +121,9 @@
+ 		<variable name="btn4_col2_x_right" value="1218"/>
+ 		<variable name="btn4_col3_x_right" value="1452"/>
+ 		<variable name="btn4_col4_x_right" value="1686"/>
+-		<variable name="status_topalign_header_y" value="0"/>
+-		<variable name="status_centeralign_header_y" value="7"/>
+-		<variable name="status_bottomalign_header_y" value="14"/>
++		<variable name="status_topalign_header_y" value="6"/>
++		<variable name="status_centeralign_header_y" value="8"/>
++		<variable name="status_bottomalign_header_y" value="10"/>
+ 		<variable name="row1_header_y" value="{statusicons_align}"/>
+ 		<variable name="row2_header_y" value="48"/>
+ 		<variable name="row3_header_y" value="60"/>
+@@ -276,7 +278,7 @@
+ 				<condition var1="tw_no_cpu_temp" var2="1"/>
+ 				<condition var1="tw_cpu_pos_x" var2="0"/>
+ 				<font resource="font_m"/>
+-				<placement x="%indent%" y="%row1_header_y%"/>
++				<placement x="%status_indent_left%" y="%row1_header_y%"/>
+ 				<text>%tw_version%</text>
+ 			</text>
+ 
+@@ -284,7 +286,7 @@
+ 				<condition var1="tw_no_cpu_temp" var2="0"/>
+ 				<condition var1="tw_cpu_pos_x" var2="0"/>
+ 				<font resource="font_m"/>
+-				<placement x="%indent%" y="%row1_header_y%"/>
++				<placement x="%status_indent_left%" y="%row1_header_y%"/>
+ 				<text>{@cpu_temp=CPU: %tw_cpu_temp% °C}</text>
+ 			</text>
+ 
+@@ -304,7 +306,7 @@
+ 					<condition var1="tw_battery_pos_x" var2="0"/>
+ 				</conditions>
+ 				<font resource="font_m"/>
+-				<placement x="%indent_right%" y="%row1_header_y%" placement="1"/>
++				<placement x="%status_indent_right%" y="%row1_header_y%" placement="1"/>
+ 				<text>{@battery_pct=Battery: %tw_battery%}</text>
+ 			</text>
+ 
+diff --git a/minuitwrp/events.cpp b/minuitwrp/events.cpp
+index e497df6..c7f4c52 100644
+--- a/minuitwrp/events.cpp
++++ b/minuitwrp/events.cpp
+@@ -53,6 +53,48 @@ static std::atomic_int vib_on_count = 0;
+ #include "twcommon.h"
+ 
+ #include "minuitwrp/minui.h"
++#include <cutils/properties.h>
++
++extern unsigned int gr_rotation;
++
++static bool touch_should_swap_xy() {
++#ifdef RECOVERY_TOUCHSCREEN_SWAP_XY
++    int default_swap = 1;
++#else
++    int default_swap = (gr_rotation == 90 || gr_rotation == 270) ? 1 : 0;
++#endif
++    char prop[PROPERTY_VALUE_MAX];
++    char def_str[4];
++    snprintf(def_str, sizeof(def_str), "%d", default_swap);
++    property_get("persist.twrp.touch_swap_xy", prop, def_str);
++    return atoi(prop) != 0;
++}
++
++static bool touch_should_flip_x() {
++#ifdef RECOVERY_TOUCHSCREEN_FLIP_X
++    int default_flip = 1;
++#else
++    int default_flip = (gr_rotation == 90 || gr_rotation == 180) ? 1 : 0;
++#endif
++    char prop[PROPERTY_VALUE_MAX];
++    char def_str[4];
++    snprintf(def_str, sizeof(def_str), "%d", default_flip);
++    property_get("persist.twrp.touch_flip_x", prop, def_str);
++    return atoi(prop) != 0;
++}
++
++static bool touch_should_flip_y() {
++#ifdef RECOVERY_TOUCHSCREEN_FLIP_Y
++    int default_flip = 1;
++#else
++    int default_flip = (gr_rotation == 270 || gr_rotation == 180) ? 1 : 0;
++#endif
++    char prop[PROPERTY_VALUE_MAX];
++    char def_str[4];
++    snprintf(def_str, sizeof(def_str), "%d", default_flip);
++    property_get("persist.twrp.touch_flip_y", prop, def_str);
++    return atoi(prop) != 0;
++}
+ 
+ //#define _EVENT_LOGGING
+ 
+@@ -448,14 +490,12 @@ static int vk_tp_to_screen(struct position *p, int *x, int *y)
+     printf("EV: p->x=%d  x-range=%d,%d  fb-width=%d\n", p->x, p->xi.minimum, p->xi.maximum, gr_fb_width());
+ #endif
+ 
+-#ifndef RECOVERY_TOUCHSCREEN_SWAP_XY
+     int fb_width = gr_fb_width();
+     int fb_height = gr_fb_height();
+-#else
+-    // We need to swap the scaling sizes, too
+-    int fb_width = gr_fb_height();
+-    int fb_height = gr_fb_width();
+-#endif
++    if (touch_should_swap_xy()) {
++        fb_width = gr_fb_height();
++        fb_height = gr_fb_width();
++    }
+ 
+     *x = (p->x - p->xi.minimum) * (fb_width - 1) / (p->xi.maximum - p->xi.minimum);
+     *y = (p->y - p->yi.minimum) * (fb_height - 1) / (p->yi.maximum - p->yi.minimum);
+@@ -734,17 +774,21 @@ static int vk_modify(struct ev *e, struct input_event *ev)
+         return 1;
+     }
+ 
+-#ifdef RECOVERY_TOUCHSCREEN_SWAP_XY
+-    x ^= y;
+-    y ^= x;
+-    x ^= y;
+-#endif
+-#ifdef RECOVERY_TOUCHSCREEN_FLIP_X
+-    x = gr_fb_width() - x;
+-#endif
+-#ifdef RECOVERY_TOUCHSCREEN_FLIP_Y
+-    y = gr_fb_height() - y;
+-#endif
++    if (touch_should_swap_xy()) {
++        int tmp = x;
++        x = y;
++        y = tmp;
++    }
++    if (touch_should_flip_x()) {
++        x = gr_fb_width() - 1 - x;
++    }
++    if (touch_should_flip_y()) {
++        y = gr_fb_height() - 1 - y;
++    }
++    if (x < 0) x = 0;
++    if (x >= gr_fb_width()) x = gr_fb_width() - 1;
++    if (y < 0) y = 0;
++    if (y >= gr_fb_height()) y = gr_fb_height() - 1;
+ 
+ #ifdef _EVENT_LOGGING
+     printf("EV: x: %d  y: %d\n", x, y);
+diff --git a/minuitwrp/libminuitwrp_defaults.go b/minuitwrp/libminuitwrp_defaults.go
+index a09999d..bc08707 100644
+--- a/minuitwrp/libminuitwrp_defaults.go
++++ b/minuitwrp/libminuitwrp_defaults.go
+@@ -78,6 +78,26 @@ func globalFlags(ctx android.BaseContext) []string {
+ 			cflags = append(cflags, "-DTW_ROTATION=0")
+ 		}
+ 	}
++
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_SWAP_XY") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_SWAP_XY")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_X") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_X")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_Y") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_Y")
++	}
++
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_SWAP_XY") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_SWAP_XY")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_X") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_X")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_Y") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_Y")
++	}
+ 	return cflags
+ }
+ 
+diff --git a/partition.cpp b/partition.cpp
+index 184cb16..c3d52f9 100755
+--- a/partition.cpp
++++ b/partition.cpp
+@@ -1,4 +1,4 @@
+-/*
++﻿/*
+ 	Copyright 2013 to 2021 TeamWin
+ 	This file is part of TWRP/TeamWin Recovery Project.
+ 
+@@ -3634,3 +3634,7 @@ std::string TWPartition::Get_Display_Name() {
+ bool TWPartition::Is_SlotSelect() {
+ 	return SlotSelect;
+ }
++
++
++
++
+diff --git a/partitionmanager.cpp b/partitionmanager.cpp
+index 2766b4c..f7c5831 100755
+--- a/partitionmanager.cpp
++++ b/partitionmanager.cpp
+@@ -587,6 +587,10 @@ void TWPartitionManager::Decrypt_Data() {
+ 	#ifdef TW_INCLUDE_CRYPTO
+ 	TWPartition* Decrypt_Data = Find_Partition_By_Path("/data");
+ 	if (Decrypt_Data && Decrypt_Data->Is_Encrypted && !Decrypt_Data->Is_Decrypted) {
++		if (!Decrypt_Data->Decrypted_Block_Device.empty()) {
++			LOGINFO("Data partition metadata is already decrypted (%s)\n", Decrypt_Data->Decrypted_Block_Device.c_str());
++			return;
++		}
+ 		Set_Crypto_State();
+ 		TWPartition* Key_Directory_Partition = Find_Partition_By_Path(Decrypt_Data->Key_Directory);
+ 		if (Key_Directory_Partition != nullptr)
+@@ -596,7 +600,28 @@ void TWPartitionManager::Decrypt_Data() {
+ 			Set_Crypto_Type("file");
+ #ifdef TW_INCLUDE_FBE_METADATA_DECRYPT
+ #ifdef USE_FSCRYPT
+-			if (android::vold::fscrypt_mount_metadata_encrypted(Decrypt_Data->Actual_Block_Device, Decrypt_Data->Mount_Point, false, false, Decrypt_Data->Current_File_System, TWFunc::Path_Exists(additional_fstab) ? additional_fstab : "")) {
++			LOGINFO("Waiting for crypto services before metadata decrypt...\n");
++			int crypto_wait = 0;
++			while (crypto_wait < 150) { // wait up to 15 seconds
++				std::string ready = android::base::GetProperty("crypto.ready", "");
++				std::string listeners = android::base::GetProperty("vendor.sys.listeners.registered", "");
++				std::string listeners_sys = android::base::GetProperty("sys.listeners.registered", "");
++				if (ready == "1" && (listeners == "true" || listeners_sys == "true")) {
++					LOGINFO("Crypto services ready after %d ms\n", crypto_wait * 100);
++					break;
++				}
++				usleep(100000); // 100ms
++				crypto_wait++;
++			}
++			usleep(500000); // 500ms for Keymaster registration
++
++			bool meta_success = android::vold::fscrypt_mount_metadata_encrypted(Decrypt_Data->Actual_Block_Device, Decrypt_Data->Mount_Point, false, false, Decrypt_Data->Current_File_System, TWFunc::Path_Exists(additional_fstab) ? additional_fstab : "");
++			if (!meta_success) {
++				LOGINFO("First metadata decrypt attempt failed, waiting 1.5s and retrying...\n");
++				usleep(1500000);
++				meta_success = android::vold::fscrypt_mount_metadata_encrypted(Decrypt_Data->Actual_Block_Device, Decrypt_Data->Mount_Point, false, false, Decrypt_Data->Current_File_System, TWFunc::Path_Exists(additional_fstab) ? additional_fstab : "");
++			}
++			if (meta_success) {
+ 				std::string crypto_blkdev = android::base::GetProperty("ro.crypto.fs_crypto_blkdev", "error");
+ 				Decrypt_Data->Decrypted_Block_Device = crypto_blkdev;
+ 				LOGINFO("Successfully decrypted metadata encrypted data partition with new block device: '%s'\n", crypto_blkdev.c_str());
+@@ -3789,3 +3814,5 @@ bool TWPartitionManager::Check_Pending_Merges() {
+ 	}
+ 	return true;
+ }
++
++
+diff --git a/twrp.cpp b/twrp.cpp
+index eedc581..659eade 100644
+--- a/twrp.cpp
++++ b/twrp.cpp
+@@ -1,4 +1,4 @@
+-/*
++﻿/*
+ 	Copyright 2012-2020 TeamWin
+ 	This file is part of TWRP/TeamWin Recovery Project.
+ 
+@@ -411,7 +411,8 @@ int main(int argc, char **argv) {
+ 	printf("Starting the UI...\n");
+ 	gui_init();
+ 
+-	if (!startup.Get_Fastboot_Mode()) PartitionManager.Setup_Fstab_Partitions(true);
++	if (!startup.Get_Fastboot_Mode())
++		PartitionManager.Setup_Fstab_Partitions(true);
+ 
+ 	// Load up all the resources
+ 	gui_loadResources();
+@@ -501,3 +502,5 @@ int main(int argc, char **argv) {
+ 
+ 	return 0;
+ }
++
++
+diff --git a/variables.h b/variables.h
+index cfc8687..7f40cf8 100755
+--- a/variables.h
++++ b/variables.h
+@@ -17,8 +17,8 @@
+ #ifndef _VARIABLES_HEADER_
+ #define _VARIABLES_HEADER_
+ 
+-#define TW_MAIN_VERSION_STR       "3.7.1_12"
+-#define TW_VERSION_STR TW_MAIN_VERSION_STR TW_DEVICE_VERSION
++#define TW_MAIN_VERSION_STR       "3.7.1"
++#define TW_VERSION_STR            TW_MAIN_VERSION_STR
+ #define TW_SETTINGS_FILE            ".twrps"
+ #define TW_RECOVERY_NAME            "TWRP"
+ #define TW_DEFAULT_RECOVERY_FOLDER  "/" TW_RECOVERY_NAME

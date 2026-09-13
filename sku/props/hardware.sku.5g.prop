@@ -1,0 +1,18 @@
+# Bluetooth
+bluetooth.device.default_name=Razer Edge 5G
+
+# DPM
+persist.vendor.dpmhalservice.enable=1
+
+# Radio
+persist.radio.multisim.config=ssss
+persist.vendor.radio.uicc_se_enabled=1
+ro.telephony.default_network=33,33
+ro.telephony.sim_slots.count=1
+ro.vendor.hacked.release=12
+telephony.active_modems.max_count=2
+telephony.lteOnCdmaDevice=1
+vendor.rild.libpath=/vendor/lib64/hw/libquectel-ril.so
+
+# USB
+vendor.usb.product_string=Razer Edge 5G

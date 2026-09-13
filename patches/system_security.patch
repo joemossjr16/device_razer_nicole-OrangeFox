@@ -1,0 +1,90 @@
+diff --git a/keystore2/src/km_compat/km_compat.cpp b/keystore2/src/km_compat/km_compat.cpp
+index 2c565c6..ffcaad5 100644
+--- a/keystore2/src/km_compat/km_compat.cpp
++++ b/keystore2/src/km_compat/km_compat.cpp
+@@ -577,19 +577,35 @@ KeyMintDevice::importWrappedKey(const std::vector<uint8_t>& in_inWrappedKeyData,
+ ScopedAStatus KeyMintDevice::upgradeKey(const std::vector<uint8_t>& in_inKeyBlobToUpgrade,
+                                         const std::vector<KeyParameter>& in_inUpgradeParams,
+                                         std::vector<uint8_t>* _aidl_return) {
+-    auto legacyUpgradeParams = convertKeyParametersToLegacy(in_inUpgradeParams);
++    LOG(ERROR) << "KM_DIAG upgradeKey blob_len=" << in_inKeyBlobToUpgrade.size()
++              << " param_count=" << in_inUpgradeParams.size();
++    std::vector<KeyParameter> filteredParams;
++    for (const auto& param : in_inUpgradeParams) {
++        const auto tag = static_cast<int32_t>(param.tag);
++        LOG(ERROR) << "KM_DIAG upgradeKey tag=" << tag
++                  << " type=" << ((static_cast<uint32_t>(tag) >> 28) & 0x0f);
++        if (param.tag == KMV1::Tag::APPLICATION_ID || param.tag == KMV1::Tag::APPLICATION_DATA) {
++            filteredParams.push_back(param);
++        }
++    }
++    LOG(ERROR) << "KM_DIAG upgradeKey filtered_param_count=" << filteredParams.size();
++    auto legacyUpgradeParams = convertKeyParametersToLegacy(filteredParams);
+     V4_0_ErrorCode errorCode;
+ 
+     auto result =
+         mDevice->upgradeKey(prefixedKeyBlobRemovePrefix(in_inKeyBlobToUpgrade), legacyUpgradeParams,
+                             [&](V4_0_ErrorCode error, const hidl_vec<uint8_t>& upgradedKeyBlob) {
+                                 errorCode = error;
+-                                *_aidl_return = keyBlobPrefix(upgradedKeyBlob, false);
++                                if (error == V4_0_ErrorCode::OK) {
++                                    *_aidl_return = keyBlobPrefix(upgradedKeyBlob, false);
++                                }
+                             });
+     if (!result.isOk()) {
+         LOG(ERROR) << __func__ << " transaction failed. " << result.description();
+         return convertErrorCode(KMV1::ErrorCode::UNKNOWN_ERROR);
+     }
++    LOG(ERROR) << "KM_DIAG upgradeKey legacy_result=" << static_cast<int32_t>(errorCode)
++              << " upgraded_blob_len=" << _aidl_return->size();
+     return convertErrorCode(errorCode);
+ }
+ 
+diff --git a/keystore2/src/security_level.rs b/keystore2/src/security_level.rs
+index 3e01a97..352f26b 100644
+--- a/keystore2/src/security_level.rs
++++ b/keystore2/src/security_level.rs
+@@ -833,8 +833,15 @@ impl KeystoreSecurityLevel {
+     where
+         F: Fn(&[u8]) -> Result<T, Error>,
+     {
++        log::error!(
++            "KM_DIAG begin-attempt blob_len={} param_count={} tags={:?}",
++            key_blob.len(),
++            params.len(),
++            params.iter().map(|p| format!("{:?}", p.tag)).collect::<Vec<String>>()
++        );
+         match f(key_blob) {
+             Err(Error::Km(ErrorCode::KEY_REQUIRES_UPGRADE)) => {
++                log::error!("KM_DIAG initial_begin result=KEY_REQUIRES_UPGRADE(-62)");
+                 let upgraded_blob = {
+                     let _wp = self.watch_millis(
+                         concat!(
+@@ -843,7 +850,18 @@ impl KeystoreSecurityLevel {
+                         ),
+                         500,
+                     );
+-                    map_km_error(km_dev.upgradeKey(key_blob, params))
++                    let upgrade_params: Vec<KeyParameter> = params
++                        .iter()
++                        .filter(|p| matches!(p.tag, Tag::APPLICATION_ID | Tag::APPLICATION_DATA))
++                        .cloned()
++                        .collect();
++                    let result = km_dev.upgradeKey(key_blob, &upgrade_params);
++                    log::error!(
++                        "KM_DIAG upgradeKey result={:?} upgraded_blob_len={}",
++                        result.as_ref().err(),
++                        result.as_ref().ok().map(|b| b.len()).unwrap_or(0)
++                    );
++                    map_km_error(result)
+                 }
+                 .context("In upgrade_keyblob_if_required_with: Upgrade failed.")?;
+ 
+@@ -859,6 +877,7 @@ impl KeystoreSecurityLevel {
+                     )?;
+                 }
+ 
++                log::error!("KM_DIAG retry_begin blob_len={}", upgraded_blob.len());
+                 match f(&upgraded_blob) {
+                     Ok(v) => Ok((v, Some(upgraded_blob))),
+                     Err(e) => Err(e).context(concat!(

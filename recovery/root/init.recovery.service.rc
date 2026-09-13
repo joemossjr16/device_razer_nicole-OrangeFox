@@ -1,0 +1,14 @@
+on property:hwservicemanager.ready=true
+    start boot-hal-1-0
+    start nicole_crypto_prep
+
+on boot
+    start boot-hal-1-0
+    start nicole_crypto_prep
+
+service recovery /system/bin/recovery
+    socket recovery stream 422 system system
+    seclabel u:r:recovery:s0
+
+import /init.recovery.disable-services.rc
+import /init.recovery.qcom_decrypt.rc

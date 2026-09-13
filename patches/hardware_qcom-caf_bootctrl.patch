@@ -1,0 +1,32 @@
+diff --git a/Android.bp b/Android.bp
+index 13d6821..6072b7e 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -1,4 +1,5 @@
+ soong_namespace {
++    imports: ["device/qcom/common/gpt-utils"],
+ }
+ 
+ filegroup {
+@@ -15,6 +16,7 @@ cc_defaults {
+     header_libs: [
+         "libhardware_headers",
+         "libsystem_headers",
++        "libgptutils_headers",
+     ],
+     shared_libs: [
+         "libcutils",
+@@ -29,6 +31,11 @@ cc_defaults {
+     ],
+     srcs: [
+         ":bootctrl_hal_src",
++        ":libgptutils_src",
+     ],
+-
+ }
++
++cc_library_shared {
++    name: "bootctrl.lahaina",
++    defaults: ["bootctrl_hal_defaults"],
++}
+\ No newline at end of file

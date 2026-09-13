@@ -1,0 +1,11 @@
+# eBPF
+ro.bpf.kver_override=5.10.239
+
+# e-SIM
+masterclear.allow_retain_esim_profiles_after_fdr=1
+
+# System server
+arm64.memtag.process.system_server=off
+
+# Voice assistant
+ro.opa.eligible_device=true

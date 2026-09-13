@@ -1,0 +1,51 @@
+# mount point       fstype  device                                  device2                     flags
+# Boot & Kernel
+/boot               emmc    /dev/block/bootdevice/by-name/boot                                  flags=slotselect;backup=1;display="Boot";flashimg=1
+/vendor_boot        emmc    /dev/block/bootdevice/by-name/vendor_boot                           flags=slotselect;backup=1;display="Vendor Boot";flashimg=1
+/dtbo               emmc    /dev/block/bootdevice/by-name/dtbo                                  flags=slotselect;backup=1;display="DTBO";flashimg=1
+
+# AVB / Verified Boot
+/vbmeta             emmc    /dev/block/bootdevice/by-name/vbmeta                                flags=slotselect;backup=1;display="VBMeta";flashimg=1
+/vbmeta_system      emmc    /dev/block/bootdevice/by-name/vbmeta_system                         flags=slotselect;backup=1;display="VBMeta System";flashimg=1
+
+# Dynamic Partitions (Super)
+/super              emmc    /dev/block/bootdevice/by-name/super                                 flags=backup=1;display="Super (System/Vendor/Product)";flashimg=1
+
+# Persist
+/persist_image      emmc    /dev/block/bootdevice/by-name/persist                               flags=backup=1;display="Persist";flashimg=1
+
+# Modem / Radio Firmware
+/modem              emmc    /dev/block/bootdevice/by-name/modem                                 flags=slotselect;backup=1;display="Modem (Radio)"
+/bluetooth          emmc    /dev/block/bootdevice/by-name/bluetooth                             flags=slotselect;backup=1;subpartitionof=/modem
+/dsp                emmc    /dev/block/bootdevice/by-name/dsp                                   flags=slotselect;backup=1;subpartitionof=/modem
+
+# EFS (IMEI, Calibration & NV Data)
+/efs1               emmc    /dev/block/bootdevice/by-name/modemst1                              flags=backup=1;display="EFS"
+/efs2               emmc    /dev/block/bootdevice/by-name/modemst2                              flags=backup=1;subpartitionof=/efs1
+/efsc               emmc    /dev/block/bootdevice/by-name/fsc                                   flags=backup=1;subpartitionof=/efs1
+/efsg               emmc    /dev/block/bootdevice/by-name/fsg                                   flags=backup=1;subpartitionof=/efs1
+
+# Critical Firmware
+/abl                emmc    /dev/block/bootdevice/by-name/abl                                   flags=slotselect;backup=1;display="Firmware";flashimg=1
+/aop                emmc    /dev/block/bootdevice/by-name/aop                                   flags=slotselect;backup=1;subpartitionof=/abl
+/cpucp              emmc    /dev/block/bootdevice/by-name/cpucp                                 flags=slotselect;backup=1;subpartitionof=/abl
+/devcfg             emmc    /dev/block/bootdevice/by-name/devcfg                                flags=slotselect;backup=1;subpartitionof=/abl
+/featenabler        emmc    /dev/block/bootdevice/by-name/featenabler                           flags=slotselect;backup=1;subpartitionof=/abl
+/hyp                emmc    /dev/block/bootdevice/by-name/hyp                                   flags=slotselect;backup=1;subpartitionof=/abl
+/keymaster          emmc    /dev/block/bootdevice/by-name/keymaster                             flags=slotselect;backup=1;subpartitionof=/abl
+/multiimgoem        emmc    /dev/block/bootdevice/by-name/multiimgoem                           flags=slotselect;backup=1;subpartitionof=/abl
+/qupfw              emmc    /dev/block/bootdevice/by-name/qupfw                                 flags=slotselect;backup=1;subpartitionof=/abl
+/shrm               emmc    /dev/block/bootdevice/by-name/shrm                                  flags=slotselect;backup=1;subpartitionof=/abl
+/tz                 emmc    /dev/block/bootdevice/by-name/tz                                    flags=slotselect;backup=1;subpartitionof=/abl
+/uefisecapp         emmc    /dev/block/bootdevice/by-name/uefisecapp                            flags=slotselect;backup=1;subpartitionof=/abl
+/vm-bootsys         emmc    /dev/block/bootdevice/by-name/vm-bootsys                            flags=slotselect;backup=1;subpartitionof=/abl
+
+# Secondary Bootloader (XBL)
+/xbl_a              emmc    /dev/block/bootdevice/by-name/xbl_a                                 flags=backup=1;display="XBL A"
+/xbl_config_a       emmc    /dev/block/bootdevice/by-name/xbl_config_a                          flags=backup=1;subpartitionof=/xbl_a
+/xbl_b              emmc    /dev/block/bootdevice/by-name/xbl_b                                 flags=backup=1;display="XBL B"
+/xbl_config_b       emmc    /dev/block/bootdevice/by-name/xbl_config_b                          flags=backup=1;subpartitionof=/xbl_b
+
+# Removable Storage
+/external_sd        auto    /dev/block/mmcblk1p1                    /dev/block/mmcblk1          flags=display="MicroSD";storage;wipeingui;removable
+/usb-otg            auto    /dev/block/sdg1                         /dev/block/sdg              flags=display="USB-OTG";storage;wipeingui;removable

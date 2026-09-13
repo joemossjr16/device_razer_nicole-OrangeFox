@@ -1,0 +1,7 @@
+*.img
+*.zip
+*.tar
+out/
+.vscode/
+*.pyc
+__pycache__/
