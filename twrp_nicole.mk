@@ -21,3 +21,6 @@ PRODUCT_PACKAGES += \
     qcom_decrypt \
     qcom_decrypt_fbe \
     fastbootd
+
+# ART / Dalvik
+PRODUCT_ENABLE_UFFD_GC := false
