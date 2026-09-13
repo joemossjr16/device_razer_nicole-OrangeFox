@@ -9,5 +9,7 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/twrp_nicole.mk
 
 COMMON_LUNCH_CHOICES := \
-    fox_nicole-eng \
-    twrp_nicole-eng
+    fox_nicole-ap2a-eng \
+    fox_nicole-ap2a-userdebug \
+    twrp_nicole-ap2a-eng \
+    twrp_nicole-ap2a-userdebug
