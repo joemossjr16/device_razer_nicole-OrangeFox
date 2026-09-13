@@ -1,0 +1,115 @@
+diff --git a/data.cpp b/data.cpp
+index b9e91b6a..4cb1f9ef 100755
+--- a/data.cpp
++++ b/data.cpp
+@@ -1221,11 +1221,7 @@ void DataManager::SetDefaultValues()
+   mPersist.SetValue(FOX_PERFORMANCE_CHECK, "0");
+   mPersist.SetValue(FOX_BALANCE_CHECK, "1");
+ 
+-#ifdef OF_USE_LOCKSCREEN_BUTTON
+   mPersist.SetValue("lock_btn", "1");
+-#else
+-  mPersist.SetValue("lock_btn", "0");
+-#endif
+ 
+   mConst.SetValue(FOX_SURVIVAL_FOLDER_VAR, FOX_SURVIVAL_FOLDER);
+   mConst.SetValue(FOX_SURVIVAL_BACKUP_NAME, FOX_SURVIVAL_BACKUP);
+diff --git a/gui/battery.cpp b/gui/battery.cpp
+index 9fca830c..8c779674 100644
+--- a/gui/battery.cpp
++++ b/gui/battery.cpp
+@@ -109,6 +109,12 @@ GUIBattery::GUIBattery(xml_node<>* node)
+ 	// Load the placement
+ 	LoadPlacement(FindNode(node, "placement"), &mRenderX, &mRenderY, &mRenderW, &mRenderH, &mPlacement);
+ 	SetPlacement(TOP_LEFT);
++
++	int rawW = LoadAttrInt(FindNode(node, "placement"), "w", 0);
++	int rawH = LoadAttrInt(FindNode(node, "placement"), "h", 0);
++	if (rawH > 0 && rawW > 0 && mRenderH > 0) {
++		mRenderW = (mRenderH * rawW) / rawH;
++	}
+ 	
+ 	mDX += mRenderX;
+ 	mDY += mRenderY;
+@@ -143,6 +149,11 @@ int GUIBattery::Render(void)
+ 											 DataManager::GetStrValue("tw_battery") + "%" ;
+ 	
+ 	int textW = twrpTruetype::gr_ttf_measureEx(mBatteryPercentStr.c_str(), fontResource);
++
++	int totalW = (mBatteryIcon == 1 ? (textW + mPadding + mRenderW) : textW) + 16;
++	int totalH = mRenderH > mFontHeight ? mRenderH : mFontHeight;
++	gr_color(0, 0, 0, 255);
++	gr_fill(mRenderX - totalW, mRenderY - 4, totalW + 20, totalH + 8);
+ 	
+ 	if (mBatteryIcon == 1) {
+ 		int iconRealX = textW + mPadding + mRenderW;
+diff --git a/gui/gesture.cpp b/gui/gesture.cpp
+index b2a2f390..0f483e09 100755
+--- a/gui/gesture.cpp
++++ b/gui/gesture.cpp
+@@ -63,7 +63,7 @@ GUIGesture::GUIGesture(xml_node<>* node)
+ 
+ 	xml_node<>* child = FindNode(node, "settings");
+ 	mMode = LoadAttrInt(child, "side", mMode);
+-	mSensetivity = LoadAttrIntScaleX(child, "sense", mSensetivity);
++	mSensetivity = (mMode == 0 || mMode == 3) ? LoadAttrIntScaleY(child, "sense", mSensetivity) : LoadAttrIntScaleX(child, "sense", mSensetivity);
+ 
+ 	int x = 0, y = 0, w = 0, h = 0;
+ 	if (hasFill)
+@@ -124,10 +124,10 @@ int GUIGesture::NotifyTouch(TOUCH_STATE state, int x, int y)
+ 		vibrateLock = false; //Execute gesture action only one time
+ 
+ 	if ((
+-		(mMode == 0 && y < mRenderY - mSensetivity && y > center) ||
++		(mMode == 0 && y < mRenderY - mSensetivity) ||
+ 		(mMode == 1 && x < mRenderX - mSensetivity) ||
+ 		(mMode == 2 && x > mRenderX + mSensetivity + mRenderW) ||
+-		(mMode == 3 && y > mRenderY + mSensetivity + mRenderH && y < center)
++		(mMode == 3 && y > mRenderY + mSensetivity + mRenderH)
+ 		) && !vibrateLock)  {
+ 		#ifndef TW_NO_HAPTICS
+ 			DataManager::Vibrate("tw_button_vibrate");
+diff --git a/gui/pages.cpp b/gui/pages.cpp
+index b1825757..e9fd6290 100755
+--- a/gui/pages.cpp
++++ b/gui/pages.cpp
+@@ -970,6 +970,10 @@ int PageSet::LoadDetails(LoadingContext& ctx, xml_node<>* root)
+ #endif
+ 						scale_w = (((float)gr_fb_width() + (float)tw_w_offset) - ((float)offx * 2.0)) / (float)width;
+ 						scale_h = (((float)gr_fb_height() + (float)tw_h_offset) - ((float)offy * 2.0)) / (float)height;
++						if (gr_fb_width() > gr_fb_height() && width == 1080) {
++							scale_w = scale_h;
++							tw_x_offset = (gr_fb_width() - (int)((float)width * scale_w)) / 2;
++						}
+ #ifdef OF_ENABLE_LAB
+ 					}
+ #endif
+@@ -979,11 +983,9 @@ int PageSet::LoadDetails(LoadingContext& ctx, xml_node<>* root)
+ 					tw_x_offset = offx * scale_off_w;
+ 					tw_y_offset = offy * scale_off_h;
+ #endif
+-					if (scale_w != 1 || scale_h != 1) {
+-						LOGINFO("Scaling theme width %fx and height %fx, offsets x: %i y: %i w: %i h: %i\n",
+-							scale_w, scale_h, tw_x_offset, tw_y_offset, tw_w_offset, tw_h_offset);
+-						set_scale_values(scale_w, scale_h);
+-					}
++					set_scale_values(scale_w, scale_h);
++					LOGINFO("Scaling theme width %fx and height %fx, offsets x: %i y: %i w: %i h: %i\n",
++						scale_w, scale_h, tw_x_offset, tw_y_offset, tw_w_offset, tw_h_offset);
+ 				}
+ 			} else {
+ 				LOGINFO("XML does not contain width and height, no scaling will be applied\n");
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 7dcffc29..f834cebd 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -24,8 +24,7 @@
+ 		<variable name="clock_style" value="1" persist="1"/>
+ 		<variable name="lock_action" value="0" persist="1"/>
+ 		<variable name="lock_info" value="1" persist="1"/>
+-		<!--variable name="lock_btn" value="0" persist="1"/-->
+-		<variable name="lock_btn" persist="1"/>
++		<variable name="lock_btn" value="1" persist="1"/>
+ 
+ 		<!-- Device settings -->
+ 		<variable name="charging_now" value="0"/>
