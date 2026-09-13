@@ -45,8 +45,6 @@ if [ -f /system/bin/resetprop ]; then
     /system/bin/resetprop -n ro.build.version.release "$ROM_VER"
     /system/bin/resetprop -n ro.build.version.release_or_codename "$ROM_VER"
     /system/bin/resetprop -n ro.build.version.security_patch "$ROM_PATCH"
-    /system/bin/resetprop -n persist.twrp.touch_flip_y 1
-    /system/bin/resetprop -n persist.twrp.touch_flip_x 0
     /system/bin/resetprop -n ro.virtual_ab.enabled true
     /system/bin/resetprop -n ro.virtual_ab.retrofit false
     /system/bin/resetprop -n ro.virtual_ab.userspace.snapshots.enabled true
