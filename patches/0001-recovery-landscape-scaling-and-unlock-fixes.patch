@@ -14,35 +14,6 @@ index b9e91b6a..4cb1f9ef 100755
  
    mConst.SetValue(FOX_SURVIVAL_FOLDER_VAR, FOX_SURVIVAL_FOLDER);
    mConst.SetValue(FOX_SURVIVAL_BACKUP_NAME, FOX_SURVIVAL_BACKUP);
-diff --git a/gui/battery.cpp b/gui/battery.cpp
-index 9fca830c..8c779674 100644
---- a/gui/battery.cpp
-+++ b/gui/battery.cpp
-@@ -109,6 +109,12 @@ GUIBattery::GUIBattery(xml_node<>* node)
- 	// Load the placement
- 	LoadPlacement(FindNode(node, "placement"), &mRenderX, &mRenderY, &mRenderW, &mRenderH, &mPlacement);
- 	SetPlacement(TOP_LEFT);
-+
-+	int rawW = LoadAttrInt(FindNode(node, "placement"), "w", 0);
-+	int rawH = LoadAttrInt(FindNode(node, "placement"), "h", 0);
-+	if (rawH > 0 && rawW > 0 && mRenderH > 0) {
-+		mRenderW = (mRenderH * rawW) / rawH;
-+	}
- 	
- 	mDX += mRenderX;
- 	mDY += mRenderY;
-@@ -143,6 +149,11 @@ int GUIBattery::Render(void)
- 											 DataManager::GetStrValue("tw_battery") + "%" ;
- 	
- 	int textW = twrpTruetype::gr_ttf_measureEx(mBatteryPercentStr.c_str(), fontResource);
-+
-+	int totalW = (mBatteryIcon == 1 ? (textW + mPadding + mRenderW) : textW) + 16;
-+	int totalH = mRenderH > mFontHeight ? mRenderH : mFontHeight;
-+	gr_color(0, 0, 0, 255);
-+	gr_fill(mRenderX - totalW, mRenderY - 4, totalW + 20, totalH + 8);
- 	
- 	if (mBatteryIcon == 1) {
- 		int iconRealX = textW + mPadding + mRenderW;
 diff --git a/gui/gesture.cpp b/gui/gesture.cpp
 index b2a2f390..0f483e09 100755
 --- a/gui/gesture.cpp
@@ -69,38 +40,133 @@ index b2a2f390..0f483e09 100755
  		) && !vibrateLock)  {
  		#ifndef TW_NO_HAPTICS
  			DataManager::Vibrate("tw_button_vibrate");
-diff --git a/gui/pages.cpp b/gui/pages.cpp
-index b1825757..e9fd6290 100755
---- a/gui/pages.cpp
-+++ b/gui/pages.cpp
-@@ -970,6 +970,10 @@ int PageSet::LoadDetails(LoadingContext& ctx, xml_node<>* root)
- #endif
- 						scale_w = (((float)gr_fb_width() + (float)tw_w_offset) - ((float)offx * 2.0)) / (float)width;
- 						scale_h = (((float)gr_fb_height() + (float)tw_h_offset) - ((float)offy * 2.0)) / (float)height;
-+						if (gr_fb_width() > gr_fb_height() && width == 1080) {
-+							scale_w = scale_h;
-+							tw_x_offset = (gr_fb_width() - (int)((float)width * scale_w)) / 2;
-+						}
- #ifdef OF_ENABLE_LAB
- 					}
- #endif
-@@ -979,11 +983,9 @@ int PageSet::LoadDetails(LoadingContext& ctx, xml_node<>* root)
- 					tw_x_offset = offx * scale_off_w;
- 					tw_y_offset = offy * scale_off_h;
- #endif
--					if (scale_w != 1 || scale_h != 1) {
--						LOGINFO("Scaling theme width %fx and height %fx, offsets x: %i y: %i w: %i h: %i\n",
--							scale_w, scale_h, tw_x_offset, tw_y_offset, tw_w_offset, tw_h_offset);
--						set_scale_values(scale_w, scale_h);
--					}
-+					set_scale_values(scale_w, scale_h);
-+					LOGINFO("Scaling theme width %fx and height %fx, offsets x: %i y: %i w: %i h: %i\n",
-+						scale_w, scale_h, tw_x_offset, tw_y_offset, tw_w_offset, tw_h_offset);
- 				}
- 			} else {
- 				LOGINFO("XML does not contain width and height, no scaling will be applied\n");
+diff --git a/gui/scrolllist.cpp b/gui/scrolllist.cpp
+index 2b069413..54b0792c 100755
+--- a/gui/scrolllist.cpp
++++ b/gui/scrolllist.cpp
+@@ -470,7 +470,7 @@ void GUIScrollList::RenderStdItem(int yPos, bool selected, ImageResource* icon,
+ 			int arrowH = groupArrow->GetHeight();
+ 			int arrowW = groupArrow->GetWidth();
+ 			int arrowY = yPos + (iconAndTextH - arrowH) / 2;
+-			int arrowX = mRenderW - groupOffset - 75;
++			int arrowX = mRenderX + mRenderW - groupOffset - 75;
+ 			gr_blit(groupArrow->GetResource(), 0, 0, arrowW, arrowH, arrowX, arrowY);
+ 		}
+ 	} else if (isHighlight) {
+diff --git a/gui/theme/portrait_hdpi/pages/files.xml b/gui/theme/portrait_hdpi/pages/files.xml
+index c4b4fc06..95ba0e47 100644
+--- a/gui/theme/portrait_hdpi/pages/files.xml
++++ b/gui/theme/portrait_hdpi/pages/files.xml
+@@ -53,7 +53,7 @@
+ 			</image>
+ 
+ 			<fill color="%background%">
+-				<placement x="48" y="%search_bar_line_y%" w="984" h="4"/>
++				<placement x="48" y="%search_bar_line_y%" w="%search_bar_w%" h="4"/>
+ 			</fill>
+ 			
+ 			<button>
+@@ -73,7 +73,7 @@
+ 			<text>
+ 				<font resource="body1" color="%text_dark%"/>
+ 				<placement x="%col1_x_indent%" y="%path_text_y%"/>
+-				<limit length="38"/>
++				<limit length="90"/>
+ 				<text>%tw_file_location1%</text>
+ 			</text>
+ 
+@@ -85,7 +85,7 @@
+ 			<!--arrow-->
+ 
+ 			<button style="menu_btn">
+-				<placement x="0" y="%path_y%" w="1080" h="92" />
++				<placement x="0" y="%path_y%" w="%screen_w%" h="92" />
+ 				<action function="set">tw_filename1=tw_file_location1</action>
+ 				<action function="set">tw_file_location1_tmp=tw_file_location1</action>
+ 				<action function="set">tw_fm_isfolder=1</action>
+@@ -93,12 +93,12 @@
+ 			</button>
+ 			
+ 			<button style="actionbar">
+-				<placement x="816" y="%ab_search_y%" placement="4"/>
++				<placement x="%screen_w%-264" y="%ab_search_y%" placement="4"/>
+ 				<action function="overlay">fm_sort</action>
+ 			</button>
+ 
+ 			<image>
+-				<placement x="816" y="%ab_search_y%" placement="4"/>
++				<placement x="%screen_w%-264" y="%ab_search_y%" placement="4"/>
+ 				<image resource="actionbar_sort"/>
+ 			</image>
+ 
+@@ -108,12 +108,12 @@
+ 			</image>
+ 
+ 			<button style="actionbar">
+-				<placement x="954" y="%ab_search_y%" placement="4"/>
++				<placement x="%screen_w%-126" y="%ab_search_y%" placement="4"/>
+ 				<action function="page">menu</action>
+ 			</button>
+ 
+ 			<image>
+-				<placement x="954" y="%ab_search_y%" placement="4"/>
++				<placement x="%screen_w%-126" y="%ab_search_y%" placement="4"/>
+ 				<image resource="actionbar_menu"/>
+ 			</image>
+ 			
+@@ -178,7 +178,7 @@
+ 			<template name="files_qa_base"/>
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<data name="tw_file_location1_tmp"/>
+ 				<text>%tw_file_location1_tmp%</text>
+ 				<action function="set">tw_file_location1=tw_file_location1_tmp</action>
+@@ -190,7 +190,7 @@
+ 			<template name="files_sp_base"/>
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<data name="location_input_tmp"/>
+ 				<text>%location_input_tmp%</text>
+ 				<action function="set">tw_zip_location_tmp=location_input_tmp</action>
+@@ -383,7 +383,7 @@
+ 			
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<text>%tw_name_filter%</text>
+ 				<data name="tw_name_filter"/>
+ 				<action function="set">tw_reload_fm=1</action>
+diff --git a/gui/theme/portrait_hdpi/resources/images.xml b/gui/theme/portrait_hdpi/resources/images.xml
+index 1d8dec09..508b65d2 100644
+--- a/gui/theme/portrait_hdpi/resources/images.xml
++++ b/gui/theme/portrait_hdpi/resources/images.xml
+@@ -20,7 +20,7 @@
+ 		<shape name="nav_empty" w="200" h="168" color="#00000000"/>
+ 		<shape name="nav_hl" color="#B8B8B842" radius="36" w="200" h="168"/>
+ 		<shape name="nb_gesture_line" w="210" h="7" color="%text%" radius="-1" />
+-		<shape name="search_bar_bg" color="%cards_bg%" radius="36" w="984" h="260" />
++		<shape name="search_bar_bg" color="%cards_bg%" radius="36" w="%search_bar_w%" h="260" />
+ 		<shape name="nav_pill" color="%accent%" radius="-1" w="%np_pill_w%" h="%np_pill_h%" />
+ 
+ 		<shape name="power_card" color="%cards_bg%" radius="32" w="324" h="294" />
+@@ -31,8 +31,8 @@
+ 		<shape name="nav_bg" color="%cards_bg%" radius="36" w="%nav_panel_w%" h="%nav_panel_h%" />
+ 
+ 		<!-- Main switch background -->
+-		<shape name="main_switch_card_active" color="%accent%" radius="48" w="1000" h="168"/>
+-		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="48" w="1000" h="168"/>
++		<shape name="main_switch_card_active" color="%accent%" radius="48" w="%main_switch_w%" h="168"/>
++		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="48" w="%main_switch_w%" h="168"/>
+ 
+ 		<!-- Current maintainer chip -->
+ 		<shape name="maintainer_chip_bg" color="%accent%" radius="32" w="270" h="70"/>
 diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
-index 7dcffc29..f834cebd 100644
+index 7dcffc29..29da2c69 100644
 --- a/gui/theme/portrait_hdpi/resources/vars.xml
 +++ b/gui/theme/portrait_hdpi/resources/vars.xml
 @@ -24,8 +24,7 @@
@@ -113,3 +179,219 @@ index 7dcffc29..f834cebd 100644
  
  		<!-- Device settings -->
  		<variable name="charging_now" value="0"/>
+@@ -108,8 +107,8 @@
+ 		
+ 		<!-- Screen size -->
+ 		<variable name="cutout_w" value="%status_h%-72"/>
+-		<variable name="center_x" value="540"/>
+-		<variable name="screen_w" value="1080"/>
++		<variable name="center_x" value="1200"/>
++		<variable name="screen_w" value="2400"/>
+ 		<variable name="screen_min_cut" value="%screen_h%-%cutout_w%"/>
+ 		<variable name="screen_plus_cut" value="%screen_h%+%cutout_w%"/>
+ 
+@@ -124,7 +123,7 @@
+ 		
+ 		<!-- FAB above NavPanel -->
+ 		<variable name="btn_float_size" value="168"/>
+-		<variable name="btn_float_x" value="948"/>
++		<variable name="btn_float_x" value="2268"/>
+ 		<variable name="btn_float_y" value="%screen_h%-294"/>
+ 		<variable name="btn_float_nav_y" value="%screen_h%-444"/>
+ 		<variable name="btn_sfloat_1_y" value="%screen_h%-1104"/>
+@@ -132,7 +131,7 @@
+ 		<variable name="btn_sfloat_3_y" value="%screen_h%-744"/>
+ 		
+ 		<!-- NavPanel -->
+-		<variable name="nav_item_w" value="270"/>
++		<variable name="nav_item_w" value="576"/>
+ 		<variable name="nav_panel_h" value="216"/>
+ 		<variable name="nav_panel_full_h" value="%screen_w%-360"/>
+ 		<variable name="nav_panel_id" value="0"/>
+@@ -142,20 +141,20 @@
+ 		<variable name="nav_icon_y" value="%screen_h%-282"/>
+ 		<variable name="nav_text_y" value="%screen_h%-202"/>
+ 		<variable name="nav_item_y" value="%screen_h%-252"/>
+-		<variable name="nav_item_1" value="171"/>
+-		<variable name="nav_item_2" value="417"/>
+-		<variable name="nav_item_3" value="663"/>
+-		<variable name="nav_item_4" value="909"/>
++		<variable name="nav_item_1" value="336"/>
++		<variable name="nav_item_2" value="912"/>
++		<variable name="nav_item_3" value="1488"/>
++		<variable name="nav_item_4" value="2064"/>
+ 		<variable name="nav_path_w" value="648"/>
+ 
+ 		
+ 		<variable name="np_pill_w" value="192"/>
+ 		<variable name="np_pill_h" value="96"/>
+ 		<variable name="np_pill_y" value="%screen_h%-330"/>
+-		<variable name="np_pill_x1" value="75"/> <!-- 48 + 27 -->
+-		<variable name="np_pill_x2" value="321"/> <!-- 48 + 27 + np_pill_w + 27 + 27 -->
+-		<variable name="np_pill_x3" value="567"/>
+-		<variable name="np_pill_x4" value="813"/>
++		<variable name="np_pill_x1" value="240"/>
++		<variable name="np_pill_x2" value="816"/>
++		<variable name="np_pill_x3" value="1392"/>
++		<variable name="np_pill_x4" value="1968"/>
+ 		
+ 		<!-- File Selector w/ NavPanel -->
+ 		<variable name="files_np_w" value="%screen_min_cut%-600"/>
+@@ -224,20 +223,20 @@
+ 		
+ 		<!-- Content placement -->
+ 		<variable name="col1_x" value="48"/>
+-		<variable name="col1_x_neg" value="1032"/>
++		<variable name="col1_x_neg" value="%screen_w%-48"/>
+ 		<variable name="col1_x_indent" value="216"/>
+ 		<variable name="col1_x_small_indent" value="150"/>
+ 
+ 		<variable name="col1_x_caption" value="216"/>
+-		<variable name="input_w" value="984"/>
+-		<variable name="input_backup_w" value="905"/>
++		<variable name="input_w" value="%screen_w%-96"/>
++		<variable name="input_backup_w" value="%screen_w%-175"/>
+ 		
+ 		<variable name="col_col_center_x" value="386"/>
+ 		<variable name="col_x_color3" value="724"/>
+ 		<variable name="col2_x" value="708"/>
+ 		<variable name="col2_x_text" value="596"/>
+ 		<variable name="col1_set_x" value="24"/>
+-		<variable name="content_w" value="984"/>
++		<variable name="content_w" value="%screen_w%-96"/>
+ 		<variable name="listbox_tz_width_2" value="540"/>
+ 		<variable name="fm_search_h" value="%screen_min_cut%-1028"/>
+ 		<variable name="fm_search_num_h" value="%screen_min_cut%-1140"/>
+@@ -342,11 +341,11 @@
+ 		<variable name="row_navbtn_w" value="318"/>
+ 		<variable name="row_navbtn_y" value="%screen_h%-72"/>
+ 		<variable name="back_button_x" value="237"/>
+-		<variable name="slideout_button_x" value="843"/>
++		<variable name="slideout_button_x" value="2163"/>
+ 		<variable name="nav_h" value="144"/>
+ 		
+ 		<!-- Status Bar -->
+-		<variable name="status_right_x" value="1060-%status_indent_right%"/>
++		<variable name="status_right_x" value="%screen_w%-20-%status_indent_right%"/>
+ 		
+ 		<!-- Big invisible button -->
+ 		<variable name="mb_h_hide" value="120"/>
+@@ -381,10 +380,10 @@
+ 		<variable name="lb_group_l10" value="980"/>
+ 
+ 		<!-- Battery -->
+-		<variable name="battery_12_x" value="880-%status_indent_right%"/>
+-		<variable name="battery_24_x" value="940-%status_indent_right%"/>
+-		<variable name="battery_2_12_x" value="900-%status_indent_right%"/>
+-		<variable name="battery_2_24_x" value="960-%status_indent_right%"/>
++		<variable name="battery_12_x" value="%screen_w%-200-%status_indent_right%"/>
++		<variable name="battery_24_x" value="%screen_w%-140-%status_indent_right%"/>
++		<variable name="battery_2_12_x" value="%screen_w%-180-%status_indent_right%"/>
++		<variable name="battery_2_24_x" value="%screen_w%-120-%status_indent_right%"/>
+ 
+ 		<variable name="battery_y" value="%status_info_y%+6"/>
+ 		<variable name="battery_2_y" value="%status_info_y%+10"/>
+@@ -402,6 +401,7 @@
+ 		<variable name="search_bar_y" value="72+%cutout_w%"/>
+ 		<variable name="search_bar_bg_y" value="96+%cutout_w%"/>
+ 		<variable name="search_bar_line_y" value="238+%cutout_w%"/>
++		<variable name="search_bar_w" value="%screen_w%-96"/>
+ 		<variable name="path_text_y" value="268+%cutout_w%"/>
+ 		<variable name="path_y" value="240+%cutout_w%"/>
+ 		<variable name="path_arrow_y" value="300+%cutout_w%"/>
+@@ -414,11 +414,11 @@
+ 		<variable name="ab_y" value="156+%cutout_w%"/>
+ 		<variable name="ab2_y" value="324+%cutout_w%"/>
+ 		<variable name="ab3_y" value="540+%cutout_w%"/>
+-		<variable name="ab_btn1_x" value="996"/>
+-		<variable name="ab_btn2_x" value="852"/>
+-		<variable name="ab_btn3_x" value="708"/>
+-		<variable name="ab_btn01_x" value="468"/>
+-		<variable name="ab_btn02_x" value="612"/>
++		<variable name="ab_btn1_x" value="%screen_w%-84"/>
++		<variable name="ab_btn2_x" value="%screen_w%-228"/>
++		<variable name="ab_btn3_x" value="%screen_w%-372"/>
++		<variable name="ab_btn01_x" value="%screen_w%-612"/>
++		<variable name="ab_btn02_x" value="%screen_w%-468"/>
+ 		
+ 		<variable name="ab_back_x" value="84"/>
+ 		<variable name="ab_bc_y" value="115+%cutout_w%"/>
+@@ -434,18 +434,19 @@
+ 		<variable name="tab_w" value="312"/>
+ 		<variable name="tab_h" value="8"/>
+ 
+-		<variable name="main_switch_icon_x" value="946"/>
++		<variable name="main_switch_w" value="%screen_w%-80"/>
++		<variable name="main_switch_icon_x" value="%screen_w%-134"/>
+ 
+ 		<!-- Advanced -->
+ 		<variable name="adv_additions_h" value="%screen_w%-200"/>
+ 
+ 		<!-- Sort menu -->
+ 		<variable name="ab_menu_y" value="72+%cutout_w%"/>
+-		<variable name="ab_menu_x" value="972"/>
+-		<variable name="ab_menu_sort_x" value="588"/>
++		<variable name="ab_menu_x" value="%screen_w%-108"/>
++		<variable name="ab_menu_sort_x" value="%screen_w%-492"/>
+ 		<variable name="ab_menu_sort_btn_w" value="468"/>
+ 		<variable name="ab_menu_sort_btn_h" value="144"/>
+-		<variable name="ab_menu_sort_text_x" value="638"/>
++		<variable name="ab_menu_sort_text_x" value="%screen_w%-442"/>
+ 		<variable name="ab_menu_text_offset" value="32"/>
+ 		<variable name="ab_menu_btn_1_y" value="121+%cutout_w%"/>
+ 		<variable name="ab_menu_btn_2_y" value="265+%cutout_w%"/>
+@@ -499,7 +500,7 @@
+ 		<variable name="input_cursor_width" value="2"/>
+ 		
+ 		<!-- Terminal / Console -->
+-		<variable name="console_width" value="984"/>
++		<variable name="console_width" value="%screen_w%-96"/>
+ 		<variable name="console_height" value="%screen_min_cut%-475"/>
+ 		<variable name="console_action_height" value="%screen_min_cut%-852"/>
+ 		<variable name="console_fastboot_height" value="%screen_min_cut%-492"/>
+@@ -509,7 +510,7 @@
+ 		<variable name="console_y" value="504+%cutout_w%"/>
+ 		<variable name="console_ab_y" value="288+%cutout_w%"/>
+ 		<variable name="terminal_y" value="90+%cutout_w%"/>
+-		<variable name="terminal_width" value="1032"/>
++		<variable name="terminal_width" value="%screen_w%-48"/>
+ 		<variable name="terminal_height" value="%screen_min_cut%-1020"/>
+ 		<variable name="terminal_num_height" value="%screen_min_cut%-1132"/>
+ 		<variable name="terminal_nokb_height" value="%screen_min_cut%-270"/>
+diff --git a/gui/theme/portrait_hdpi/splash.xml b/gui/theme/portrait_hdpi/splash.xml
+index 788d80a3..76b06eb5 100644
+--- a/gui/theme/portrait_hdpi/splash.xml
++++ b/gui/theme/portrait_hdpi/splash.xml
+@@ -5,7 +5,7 @@
+ -->
+ <recovery>
+ 	<details>
+-		<resolution width="1080" h="1920"/>
++		<resolution width="2400" h="1080"/>
+ 		<themeversion>3</themeversion>
+ 	</details>
+ 	
+@@ -19,8 +19,8 @@
+ 	<variables>
+ 		<variable name="of" value="%screen_h%-400"/>
+ 		<variable name="rec" value="%screen_h%-320"/>
+-		<variable name="screen_width" value="1080"/>
+-		<variable name="screen_height" value="1920"/>
++		<variable name="screen_width" value="2400"/>
++		<variable name="screen_height" value="1080"/>
+ 		<variable name="header_color" value="#000000"/>
+ 		<variable name="background_color" value="#000000"/>
+ 	</variables>
+diff --git a/gui/theme/portrait_hdpi/ui.xml b/gui/theme/portrait_hdpi/ui.xml
+index 99eed886..7cff9b5e 100644
+--- a/gui/theme/portrait_hdpi/ui.xml
++++ b/gui/theme/portrait_hdpi/ui.xml
+@@ -2,7 +2,7 @@
+ <!-- OrangeFox theme by fordownloads and OrangeFox team -->
+ <recovery>
+ 	<details>
+-		<resolution width="1080" height="1920" />
++		<resolution width="2400" height="1080" />
+ 		<themeversion>3</themeversion>
+ 	</details>
+ 	
