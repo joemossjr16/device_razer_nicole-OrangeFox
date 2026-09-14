@@ -1,0 +1,113 @@
+From ad77363a0a5c229bfcf0022c30f0858a710d39df Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Mon, 14 Sep 2026 17:47:36 -0500
+Subject: [PATCH] nicole: taller keyboard rows + fix background fill split
+ behind keys
+
+- keyboard.xml: alphanumeric/numeric keysize height 100->135 for a taller
+  keyboard on the 2400x1080 landscape panel
+- vars.xml: keyboard_y/keyboard_num_y adjusted to screen_h-540 to match
+  new 4x135 total keyboard height
+- keyboard.xml: add explicit full-width <fill> behind both keyboard
+  templates. GUIKeyboard falls back to the native keyback image width
+  for its background when no explicit placement w/h is given (required
+  since explicit w/h on the <keyboard> placement itself causes a
+  SIGSEGV), leaving the right portion of the screen unfilled and
+  showing the page background through a visible seam. The fill draws
+  the correct flat keyboard_bg color under the full keyboard area
+  without touching the crash-causing placement.
+---
+ .../portrait_hdpi/pages/templates/keyboard.xml | 18 +++++++++++++-----
+ gui/theme/portrait_hdpi/resources/vars.xml     |  4 ++--
+ 2 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+index a9a177d3..3b5a1462 100644
+--- a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
++++ b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+@@ -62,6 +62,10 @@
+ 				</layout1>
+ 			</keyboard>
+ 			
++			<fill color="%keyboard_bg%">
++				<condition var1="tw_hide_kb" var2="0"/>
++				<placement x="0" y="%keyboard_y%" w="%screen_w%" h="540"/>
++			</fill>
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+ 				<placement x="0" y="%keyboard_y%"/>
+@@ -76,7 +80,7 @@
+ 				<capshighlight color="%keyboard_hl%"/>
+ 				<layout resource="keyback"/>
+ 				<layout1>
+-					<keysize height="100" width="240"/>
++					<keysize height="135" width="240"/>
+ 					<row1 key01="q" long01="1" key02="w" long02="2" key03="e" long03="3" key04="r" long04="4" key05="t" long05="5" key06="y" long06="6" key07="u" long07="7" key08="i" long08="8" key09="o" long09="9" key10="p" long10="0"/>
+ 					<row2 key01="120:" key02="a" long02="@" key03="s" long03="#" key04="d" long04="$" key05="f" long05="%" key06="g" long06="&amp;" key07="h" long07="*" key08="j" long08="-" key09="k" long09="+" key10="l" long10="_" key11="120:"/>
+ 					<row3 key01="360:layout2" key02="z" long02="!" key03="x" long03="&quot;" key04="c" long04="'" key05="v" long05=":" key06="b" long06=";" key07="n" long07="," key08="m" long08="?" key09="360:c:8"/>
+@@ -85,7 +89,7 @@
+ 					<keylabel key="0:layout3" text="?123"/>
+ 				</layout1>
+ 				<layout2>
+-					<keysize height="100" width="240" capslock="0" revert_layout="1"/>
++					<keysize height="135" width="240" capslock="0" revert_layout="1"/>
+ 					<row1 key01="Q" long01="1" key02="W" long02="2" key03="E" long03="3" key04="R" long04="4" key05="T" long05="5" key06="Y" long06="6" key07="U" long07="7" key08="I" long08="8" key09="O" long09="9" key10="P" long10="0"/>
+ 					<row2 key01="120:" key02="A" long02="@" key03="S" long03="#" key04="D" long04="$" key05="F" long05="%" key06="G" long06="&amp;" key07="H" long07="*" key08="J" long08="-" key09="K" long09="+" key10="L" long10="_" key11="120:"/>
+ 					<row3 key01="360:layout1" key02="Z" long02="!" key03="X" long03="&quot;" key04="C" long04="'" key05="V" long05=":" key06="B" long06=";" key07="N" long07="," key08="M" long08="?" key09="360:c:8"/>
+@@ -94,7 +98,7 @@
+ 					<keylabel key="0:layout3" text="?123"/>
+ 				</layout2>
+ 				<layout3>
+-					<keysize height="100" width="240"/>
++					<keysize height="135" width="240"/>
+ 					<row1 key01="1" key02="2" key03="3" key04="4" key05="5" key06="6" key07="7" key08="8" key09="9" key10="0"/>
+ 					<row2 key01="120:" key02="@" key03="#" key04="$" key05="%" key06="&amp;" key07="*" key08="-" key09="+" key10="_" key11="120:"/>
+ 					<row3 key01="360:layout4" key02="!" key03="240:c:34" key04="'" key05=":" key06=";" key07="," key08="?" key09="360:c:8"/>
+@@ -103,7 +107,7 @@
+ 					<keylabel key="0:layout4" text="~\{"/>
+ 				</layout3>
+ 				<layout4>
+-					<keysize height="100" width="240"/>
++					<keysize height="135" width="240"/>
+ 					<row1 key01="1" key02="2" key03="3" key04="4" key05="5" key06="6" key07="7" key08="8" key09="9" key10="0"/>
+ 					<row2 key01="120:" key02="{" key03="}" key04="[" key05="]" key06="(" key07=")" key08="&lt;" key09="&gt;" key10="|" key11="120:"/>
+ 					<row3 key01="360:layout3" key02="%" key03="^" key04="=" key05="\" key06="~" key07="`" key08="?" key09="360:c:8"/>
+@@ -120,6 +124,10 @@
+ 		</template>
+ 		
+ 		<template name="keyboardnum">
++			<fill color="%keyboard_bg%">
++				<condition var1="tw_hide_kb" var2="0"/>
++				<placement x="0" y="%keyboard_num_y%" w="%screen_w%" h="540"/>
++			</fill>
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+ 				<placement x="0" y="%keyboard_num_y%"/>
+@@ -130,7 +138,7 @@
+ 				<keylabel key="0:action" text="" resource="enter" alt="enter_num_new"/>
+ 				<layout resource="keyback_num"/>
+ 				<layout1>
+-					<keysize height="100" width="300"/>
++					<keysize height="135" width="300"/>
+ 					<row1 key01="750:" key02="1" key03="2" key04="3" key05="750:"/>
+ 					<row2 key01="750:" key02="4" key03="5" key04="6" key05="750:"/>
+ 					<row3 key01="750:" key02="7" key03="8" key04="9" key05="750:"/>
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 8e421543..1617e56b 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -530,9 +530,9 @@
+ 		<variable name="progressbar_y" value="150"/>
+ 		
+ 		<!-- Keyboard -->
+-		<variable name="keyboard_y" value="%screen_h%-400"/>
++		<variable name="keyboard_y" value="%screen_h%-540"/>
+ 		<variable name="keyboard_terminal_y" value="%screen_h%-480"/>
+-		<variable name="keyboard_num_y" value="%screen_h%-400"/>
++		<variable name="keyboard_num_y" value="%screen_h%-540"/>
+ 		<variable name="keyboard_term_num_y" value="%screen_h%-480"/>
+ 		
+ 		<!-- Input fields -->
+-- 
+2.34.1
+
