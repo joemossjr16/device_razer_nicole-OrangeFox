@@ -1,0 +1,125 @@
+From 3b51e0653ceac2cf7deac13c49a97dbbb1453e98 Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Mon, 14 Sep 2026 16:39:12 -0500
+Subject: [PATCH] nicole: fix keyboard SIGSEGV crash, theme picker text cutoff,
+ disable unstable MTP
+
+---
+ data.cpp                                      |  6 +++-
+ .../portrait_hdpi/pages/customization.xml     |  2 +-
+ .../pages/templates/keyboard.xml              |  4 +--
+ gui/theme/portrait_hdpi/resources/vars.xml    | 30 +++++++++++--------
+ 4 files changed, 25 insertions(+), 17 deletions(-)
+ mode change 100755 => 100644 data.cpp
+
+diff --git a/data.cpp b/data.cpp
+old mode 100755
+new mode 100644
+index 52d11458..7348721e
+--- a/data.cpp
++++ b/data.cpp
+@@ -1446,7 +1446,11 @@ void DataManager::SetDefaultValues()
+ #endif
+ #ifdef TW_HAS_MTP
+   mConst.SetValue("tw_has_mtp", "1");
+-  mPersist.SetValue("tw_mtp_enabled", "1");
++  // nicole: recovery.log shows the process dying/restarting right after
++  // "twmtp_MtpServer::mtppipe_thread unexpected read_count 0" every time this crash
++  // reproduces, so MTP's pipe teardown is the prime suspect. Force it off unconditionally
++  // (mConst, not mPersist) so a stale persisted "1" in .foxs can't re-enable it.
++  mConst.SetValue("tw_mtp_enabled", "0");
+   mPersist.SetValue("tw_mtp_debug", "0");
+ #else
+   LOGINFO("TW_EXCLUDE_MTP := true\n");
+diff --git a/gui/theme/portrait_hdpi/pages/customization.xml b/gui/theme/portrait_hdpi/pages/customization.xml
+index 06e5ab2a..bce5ce5f 100644
+--- a/gui/theme/portrait_hdpi/pages/customization.xml
++++ b/gui/theme/portrait_hdpi/pages/customization.xml
+@@ -1146,7 +1146,7 @@
+ 
+ 			<!-- Vertical Divider Line between Themes and Accents -->
+ 			<fill color="%linecolor%">
+-				<placement x="760" y="140" w="2" h="780"/>
++				<placement x="760" y="155" w="2" h="820"/>
+ 			</fill>
+ 
+ 			<!-- LEFT COLUMN: Themes (X: 80 to 740) -->
+diff --git a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+index 50fb03bf..a9a177d3 100644
+--- a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
++++ b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+@@ -64,7 +64,7 @@
+ 			
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_y%" w="%screen_w%" h="400"/>
++				<placement x="0" y="%keyboard_y%"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel" textcolor="%text%"/>
+ 				<key-other color="%keyboard_bg%" font="keylabel-bold" textcolor="%text_light%"/>
+@@ -122,7 +122,7 @@
+ 		<template name="keyboardnum">
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_num_y%" w="%screen_w%" h="400"/>
++				<placement x="0" y="%keyboard_num_y%"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel-num" textcolor="%text%"/>
+ 				<highlight color="%keyboard_hl%"/>
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 076f81c3..8e421543 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -61,7 +61,11 @@
+ 		<!-- Design -->
+ 		<variable name="enable_battery" value="1" persist="1"/>
+ 		<variable name="navbar_style" value="1" persist="1"/>
+-		<variable name="key_buttons" value="1" persist="1"/>
++		<!-- nicole: the "keyback" key-cap image is a fixed 1080x645 portrait asset that doesn't
++		     match the 2400x400 landscape key grid, and stretching it via explicit placement w/h
++		     on the <keyboard> element crashes the recovery process. Use the flat/undecorated
++		     background instead until the asset itself is redrawn for landscape. -->
++		<variable name="key_buttons" value="0" persist="1"/>
+ 		<variable name="key_numbar" value="0" persist="1"/>
+ 		<variable name="use_fixed_font" value="1" persist="1"/>
+ 		<variable name="show_cpu_temp" value="1" persist="1"/>
+@@ -189,24 +193,24 @@
+ 		<!-- Themes (Left Column) -->
+ 		<variable name="ws_theme_x1" value="220"/>
+ 		<variable name="ws_theme_x2" value="520"/>
+-		<variable name="ws_theme_y1" value="250"/>
+-		<variable name="ws_theme_y2" value="520"/>
+-		<variable name="ws_theme_y3" value="780"/>
+-		<variable name="ws_theme_label_y1" value="380"/>
+-		<variable name="ws_theme_label_y2" value="650"/>
+-		<variable name="ws_theme_label_y3" value="910"/>
++		<variable name="ws_theme_y1" value="290"/>
++		<variable name="ws_theme_y2" value="560"/>
++		<variable name="ws_theme_y3" value="820"/>
++		<variable name="ws_theme_label_y1" value="420"/>
++		<variable name="ws_theme_label_y2" value="690"/>
++		<variable name="ws_theme_label_y3" value="950"/>
+ 
+ 		<!-- Accents (Right Column) -->
+ 		<variable name="ws_accent_x1" value="980"/>
+ 		<variable name="ws_accent_x2" value="1330"/>
+ 		<variable name="ws_accent_x3" value="1680"/>
+ 		<variable name="ws_accent_x4" value="2030"/>
+-		<variable name="ws_accent_y1" value="250"/>
+-		<variable name="ws_accent_y2" value="520"/>
+-		<variable name="ws_accent_y3" value="780"/>
+-		<variable name="ws_accent_label_y1" value="380"/>
+-		<variable name="ws_accent_label_y2" value="650"/>
+-		<variable name="ws_accent_label_y3" value="910"/>
++		<variable name="ws_accent_y1" value="290"/>
++		<variable name="ws_accent_y2" value="560"/>
++		<variable name="ws_accent_y3" value="820"/>
++		<variable name="ws_accent_label_y1" value="420"/>
++		<variable name="ws_accent_label_y2" value="690"/>
++		<variable name="ws_accent_label_y3" value="950"/>
+ 		
+ 		<!-- Splash -->
+ 		<variable name="spl_preview_h" value="360"/>
+-- 
+2.34.1
+
