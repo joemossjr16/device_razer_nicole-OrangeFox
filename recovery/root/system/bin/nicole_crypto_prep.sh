@@ -45,7 +45,12 @@ if [ -f /system/bin/resetprop ]; then
     /system/bin/resetprop -n ro.build.version.release "$ROM_VER"
     /system/bin/resetprop -n ro.build.version.release_or_codename "$ROM_VER"
     /system/bin/resetprop -n ro.build.version.security_patch "$ROM_PATCH"
-    /system/bin/resetprop -n ro.virtual_ab.enabled true
+    # Disabled: recovery's IBootControl HAL only supports 1.0, but update_engine_sideload's
+    # snapshot/merge-status path (used for LineageOS payload.bin zips) requires 1.1, causing
+    # ErrorCode::kInstallDeviceOpenError ("Could not find IBootControl 1.1 HAL"). Forcing this
+    # false makes update_engine use the plain (non-snapshot) partition writer, which works with
+    # the working HIDL 1.0 boot-control HAL already in use here.
+    /system/bin/resetprop -n ro.virtual_ab.enabled false
     /system/bin/resetprop -n ro.virtual_ab.retrofit false
     /system/bin/resetprop -n ro.virtual_ab.userspace.snapshots.enabled true
     /system/bin/resetprop -n ro.virtual_ab.skip_snapshot_creation true
