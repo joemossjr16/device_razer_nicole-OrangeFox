@@ -1,0 +1,239 @@
+From 293ad07307b4879d68d369cdfece13353d2f80b5 Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Sun, 13 Sep 2026 23:52:05 -0500
+Subject: [PATCH] recovery:
+
+---
+ gui/theme/portrait_hdpi/pages/anywhere.xml | 51 +++++++++++-
+ gui/theme/portrait_hdpi/resources/vars.xml |  3 +
+ minuitwrp/events.cpp                       | 95 +++++++++++++++++-----
+ minuitwrp/libminuitwrp_defaults.go         |  9 ++
+ 4 files changed, 138 insertions(+), 20 deletions(-)
+
+diff --git a/gui/theme/portrait_hdpi/pages/anywhere.xml b/gui/theme/portrait_hdpi/pages/anywhere.xml
+index 151f80ef..eb939954 100644
+--- a/gui/theme/portrait_hdpi/pages/anywhere.xml
++++ b/gui/theme/portrait_hdpi/pages/anywhere.xml
+@@ -2,8 +2,57 @@
+ <recovery>
+ 	<pages>
+ 		<page name="lock">
++			<background color="%background%"/>
++			<template name="status_bg"/>
++			<template name="statusbarinfo"/>
++			<template name="keys"/>
++
++			<button>
++				<condition var1="lock_action" var2="1"/>
++				<condition var1="clock_style" var2="0"/>
++				<image resource="unlock_icon"/>
++				<placement x="%center_x%" y="%center_y%" placement="4"/>
++				<action function="togglebacklight"/>
++			</button>
++
++			<image>
++				<condition var1="lock_action" var2="0"/>
++				<condition var1="clock_style" var2="0"/>
++				<image resource="unlock_icon"/>
++				<placement x="%center_x%" y="%center_y%" placement="4"/>
++			</image>
++
++			<text color="%text%">
++				<condition var1="clock_style" var2="1"/>
++				<font resource="clock"/>
++				<placement x="%center_x%" y="%row2_2_y%" placement="4"/>
++				<text>%tw_time%</text>
++			</text>
++
++			<text color="%text%">
++				<condition var1="clock_style" var2="1"/>
++				<font resource="clock_s"/>
++				<placement x="%center_x%" y="%row2_3_y%" placement="4"/>
++				<text>%fox_date%</text>
++			</text>
++
++			<text color="%text_black%">
++				<condition var1="clock_style" var2="0"/>
++				<font resource="clock"/>
++				<placement x="%center_x%" y="%row2_2_y%" placement="4"/>
++				<text>%tw_time%</text>
++			</text>
++
++			<text color="%text_black%">
++				<condition var1="clock_style" var2="0"/>
++				<font resource="clock_s"/>
++				<placement x="%center_x%" y="%row2_3_y%" placement="4"/>
++				<text>%fox_date%</text>
++			</text>
++
+ 			<action>
+-				<action function="overlay"/>
++				<touch key="power"/>
++				<action function="togglebacklight"/>
+ 			</action>
+ 		</page>
+ 
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 876db65e..61637e15 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -1,6 +1,9 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<variables>
++		<!-- Disable screen timeout to prevent blanktimer spin-loop and keep screen active -->
++		<variable name="tw_screen_timeout_secs" value="0" persist="1"/>
++		<variable name="tw_no_screen_timeout" value="1" persist="1"/>
+ 		<!-- Cutout -->
+ 		<variable name="center_clock" value="2" persist="1"/> <!-- default clock placement (0 - right; 1 - center; 2 - left) -->
+ 		
+diff --git a/minuitwrp/events.cpp b/minuitwrp/events.cpp
+index e497df62..17903a3d 100644
+--- a/minuitwrp/events.cpp
++++ b/minuitwrp/events.cpp
+@@ -26,6 +26,7 @@
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <cutils/properties.h>
+ #include <fstream>
+ #ifdef USE_QTI_AIDL_HAPTICS_FIX_OFF
+ #include <thread>
+@@ -434,6 +435,60 @@ void ev_exit(void)
+     return (screen_pos >= 0 && screen_pos < screen_size);
+ }*/
+ 
++static int get_touch_swap_xy()
++{
++    static int val = -1;
++    if (val == -1) {
++#ifdef RECOVERY_TOUCHSCREEN_SWAP_XY
++        val = 1;
++#else
++        val = 0;
++#endif
++        char prop[PROPERTY_VALUE_MAX];
++        if (property_get("ro.recovery.touch.swap_xy", prop, NULL) > 0 ||
++            property_get("persist.recovery.touch.swap_xy", prop, NULL) > 0) {
++            val = atoi(prop);
++        }
++    }
++    return val;
++}
++
++static int get_touch_flip_x()
++{
++    static int val = -1;
++    if (val == -1) {
++#ifdef RECOVERY_TOUCHSCREEN_FLIP_X
++        val = 1;
++#else
++        val = 0;
++#endif
++        char prop[PROPERTY_VALUE_MAX];
++        if (property_get("ro.recovery.touch.flip_x", prop, NULL) > 0 ||
++            property_get("persist.recovery.touch.flip_x", prop, NULL) > 0) {
++            val = atoi(prop);
++        }
++    }
++    return val;
++}
++
++static int get_touch_flip_y()
++{
++    static int val = -1;
++    if (val == -1) {
++#ifdef RECOVERY_TOUCHSCREEN_FLIP_Y
++        val = 1;
++#else
++        val = 0;
++#endif
++        char prop[PROPERTY_VALUE_MAX];
++        if (property_get("ro.recovery.touch.flip_y", prop, NULL) > 0 ||
++            property_get("persist.recovery.touch.flip_y", prop, NULL) > 0) {
++            val = atoi(prop);
++        }
++    }
++    return val;
++}
++
+ static int vk_tp_to_screen(struct position *p, int *x, int *y)
+ {
+     if (p->xi.minimum == p->xi.maximum || p->yi.minimum == p->yi.maximum)
+@@ -448,14 +503,14 @@ static int vk_tp_to_screen(struct position *p, int *x, int *y)
+     printf("EV: p->x=%d  x-range=%d,%d  fb-width=%d\n", p->x, p->xi.minimum, p->xi.maximum, gr_fb_width());
+ #endif
+ 
+-#ifndef RECOVERY_TOUCHSCREEN_SWAP_XY
+-    int fb_width = gr_fb_width();
+-    int fb_height = gr_fb_height();
+-#else
+-    // We need to swap the scaling sizes, too
+-    int fb_width = gr_fb_height();
+-    int fb_height = gr_fb_width();
+-#endif
++    int fb_width, fb_height;
++    if (get_touch_swap_xy()) {
++        fb_width = gr_fb_height();
++        fb_height = gr_fb_width();
++    } else {
++        fb_width = gr_fb_width();
++        fb_height = gr_fb_height();
++    }
+ 
+     *x = (p->x - p->xi.minimum) * (fb_width - 1) / (p->xi.maximum - p->xi.minimum);
+     *y = (p->y - p->yi.minimum) * (fb_height - 1) / (p->yi.maximum - p->yi.minimum);
+@@ -734,17 +789,19 @@ static int vk_modify(struct ev *e, struct input_event *ev)
+         return 1;
+     }
+ 
+-#ifdef RECOVERY_TOUCHSCREEN_SWAP_XY
+-    x ^= y;
+-    y ^= x;
+-    x ^= y;
+-#endif
+-#ifdef RECOVERY_TOUCHSCREEN_FLIP_X
+-    x = gr_fb_width() - x;
+-#endif
+-#ifdef RECOVERY_TOUCHSCREEN_FLIP_Y
+-    y = gr_fb_height() - y;
+-#endif
++    if (get_touch_swap_xy()) {
++        x ^= y;
++        y ^= x;
++        x ^= y;
++    }
++    if (get_touch_flip_x()) {
++        x = gr_fb_width() - x;
++    }
++    if (get_touch_flip_y()) {
++        y = gr_fb_height() - y;
++    }
++
++    LOGI("Touch event: raw(%d, %d) -> screen(%d, %d)\n", e->mt_p.x, e->mt_p.y, x, y);
+ 
+ #ifdef _EVENT_LOGGING
+     printf("EV: x: %d  y: %d\n", x, y);
+diff --git a/minuitwrp/libminuitwrp_defaults.go b/minuitwrp/libminuitwrp_defaults.go
+index 1a7e49df..9a5bfde8 100644
+--- a/minuitwrp/libminuitwrp_defaults.go
++++ b/minuitwrp/libminuitwrp_defaults.go
+@@ -102,6 +102,15 @@ func globalFlags(ctx android.BaseContext) []string {
+ 			cflags = append(cflags, "-DTW_ROTATION=0")
+ 		}
+ 	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_SWAP_XY") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_SWAP_XY")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_X") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_X")
++	}
++	if getMakeVars(ctx, "RECOVERY_TOUCHSCREEN_FLIP_Y") == "true" {
++		cflags = append(cflags, "-DRECOVERY_TOUCHSCREEN_FLIP_Y")
++	}
+ 	return cflags
+ }
+ 
+-- 
+2.34.1
+
