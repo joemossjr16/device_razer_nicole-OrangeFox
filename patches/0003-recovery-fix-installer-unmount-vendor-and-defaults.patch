@@ -1,0 +1,54 @@
+From ce56360eabd702ad95f2e8b84f79d9adf5ed8140 Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Mon, 14 Sep 2026 08:46:33 -0500
+Subject: [PATCH] recovery:
+
+---
+ data.cpp                                   | 2 +-
+ gui/theme/portrait_hdpi/resources/vars.xml | 1 +
+ twrpinstall/twinstall.cpp                  | 4 ++--
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/data.cpp b/data.cpp
+index d5a7f067..52d11458 100755
+--- a/data.cpp
++++ b/data.cpp
+@@ -1297,7 +1297,7 @@ void DataManager::SetDefaultValues()
+   mData.SetValue("tw_background_thread_running", "0");
+   mData.SetValue(TW_RESTORE_FILE_DATE, "0");
+   mPersist.SetValue("tw_military_time", "0");
+-  mPersist.SetValue(TW_UNMOUNT_VENDOR, "1");
++  mPersist.SetValue(TW_UNMOUNT_VENDOR, "0");
+ #ifdef AB_OTA_UPDATER
+ 	mPersist.SetValue(TW_UNMOUNT_SYSTEM, "0");
+ #else
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 61637e15..b13f592c 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -1,6 +1,7 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<variables>
++		<variable name="tw_unmount_vendor" value="0" persist="1"/>
+ 		<!-- Disable screen timeout to prevent blanktimer spin-loop and keep screen active -->
+ 		<variable name="tw_screen_timeout_secs" value="0" persist="1"/>
+ 		<variable name="tw_no_screen_timeout" value="1" persist="1"/>
+diff --git a/twrpinstall/twinstall.cpp b/twrpinstall/twinstall.cpp
+index 3691a2f1..eddb9a58 100755
+--- a/twrpinstall/twinstall.cpp
++++ b/twrpinstall/twinstall.cpp
+@@ -383,8 +383,8 @@ int TWinstall_zip(const char *path, int *wipe_cache, bool check_for_digest)
+ 		   	//unlink("/vendor");
+ 		   	//mkdir("/vendor", 0755);
+ 		} else {
+-			gui_msg("unmount_vendor_err=Failed to unmount Vendor");
+-			return -1;
++			gui_msg("unmount_vendor_warn=Notice: Vendor partition busy, skipping unmount");
++			LOGINFO("Failed to unmount Vendor, continuing installation anyway\n");
+ 		}
+ 	}
+    }
+-- 
+2.34.1
+
