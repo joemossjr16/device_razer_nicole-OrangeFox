@@ -1,0 +1,3203 @@
+From 95013d3ffdf66bfe6d335c0531078914cf4c2a56 Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Sun, 13 Sep 2026 22:45:56 -0500
+Subject: [PATCH] nicole: native 2-column landscape backup layout, scaled
+ typography, and settings overflow fixes
+
+---
+ data.cpp                                      |   6 +-
+ gui/blanktimer.cpp                            |   1 +
+ gui/gesture.cpp                               |   6 +-
+ gui/scrolllist.cpp                            |   2 +-
+ .../Default/FullscreenIcons/empty_folder.png  | Bin 16131 -> 28656 bytes
+ gui/theme/portrait_hdpi/pages/advanced.xml    |  14 +-
+ gui/theme/portrait_hdpi/pages/anywhere.xml    |  73 +-
+ gui/theme/portrait_hdpi/pages/backup.xml      | 105 +--
+ gui/theme/portrait_hdpi/pages/files.xml       |  20 +-
+ gui/theme/portrait_hdpi/pages/restore.xml     |  36 +-
+ gui/theme/portrait_hdpi/pages/settings.xml    |  49 +-
+ .../portrait_hdpi/pages/templates/base.xml    |   2 +-
+ .../portrait_hdpi/pages/templates/navbar.xml  |   1 +
+ gui/theme/portrait_hdpi/pages/wipe.xml        |  22 +-
+ gui/theme/portrait_hdpi/resources/images.xml  |  16 +-
+ gui/theme/portrait_hdpi/resources/styles.xml  |  20 +-
+ gui/theme/portrait_hdpi/resources/vars.xml    | 688 +++++++++---------
+ gui/theme/portrait_hdpi/splash.xml            |   6 +-
+ gui/theme/portrait_hdpi/themes/font.xml       |  84 +--
+ gui/theme/portrait_hdpi/themes/navbar.xml     |  18 +-
+ gui/theme/portrait_hdpi/themes/sed/font_b.xml |  82 +--
+ gui/theme/portrait_hdpi/themes/sed/font_n.xml |  82 +--
+ gui/theme/portrait_hdpi/themes/sed/font_s.xml |  82 +--
+ gui/theme/portrait_hdpi/ui.xml                |   2 +-
+ 24 files changed, 689 insertions(+), 728 deletions(-)
+
+diff --git a/data.cpp b/data.cpp
+index b9e91b6a..d5a7f067 100755
+--- a/data.cpp
++++ b/data.cpp
+@@ -1221,11 +1221,7 @@ void DataManager::SetDefaultValues()
+   mPersist.SetValue(FOX_PERFORMANCE_CHECK, "0");
+   mPersist.SetValue(FOX_BALANCE_CHECK, "1");
+ 
+-#ifdef OF_USE_LOCKSCREEN_BUTTON
+   mPersist.SetValue("lock_btn", "1");
+-#else
+-  mPersist.SetValue("lock_btn", "0");
+-#endif
+ 
+   mConst.SetValue(FOX_SURVIVAL_FOLDER_VAR, FOX_SURVIVAL_FOLDER);
+   mConst.SetValue(FOX_SURVIVAL_BACKUP_NAME, FOX_SURVIVAL_BACKUP);
+@@ -1319,7 +1315,7 @@ void DataManager::SetDefaultValues()
+   mConst.SetValue("tw_screen_timeout_secs", "0");
+   mConst.SetValue("tw_no_screen_timeout", "1");
+ #else
+-  mPersist.SetValue("tw_screen_timeout_secs", "60");
++  mPersist.SetValue("tw_screen_timeout_secs", "0");
+   mPersist.SetValue("tw_no_screen_timeout", "0");
+ #endif
+ 
+diff --git a/gui/blanktimer.cpp b/gui/blanktimer.cpp
+index 1c946ea7..9d2a5ed7 100755
+--- a/gui/blanktimer.cpp
++++ b/gui/blanktimer.cpp
+@@ -56,6 +56,7 @@ void blanktimer::setTimer(void) {
+ }
+ 
+ void blanktimer::checkForTimeout() {
++	return;
+ #ifndef TW_NO_SCREEN_TIMEOUT
+ 	pthread_mutex_lock(&mutex);
+ 	timespec curTime, diff;
+diff --git a/gui/gesture.cpp b/gui/gesture.cpp
+index b2a2f390..0f483e09 100755
+--- a/gui/gesture.cpp
++++ b/gui/gesture.cpp
+@@ -63,7 +63,7 @@ GUIGesture::GUIGesture(xml_node<>* node)
+ 
+ 	xml_node<>* child = FindNode(node, "settings");
+ 	mMode = LoadAttrInt(child, "side", mMode);
+-	mSensetivity = LoadAttrIntScaleX(child, "sense", mSensetivity);
++	mSensetivity = (mMode == 0 || mMode == 3) ? LoadAttrIntScaleY(child, "sense", mSensetivity) : LoadAttrIntScaleX(child, "sense", mSensetivity);
+ 
+ 	int x = 0, y = 0, w = 0, h = 0;
+ 	if (hasFill)
+@@ -124,10 +124,10 @@ int GUIGesture::NotifyTouch(TOUCH_STATE state, int x, int y)
+ 		vibrateLock = false; //Execute gesture action only one time
+ 
+ 	if ((
+-		(mMode == 0 && y < mRenderY - mSensetivity && y > center) ||
++		(mMode == 0 && y < mRenderY - mSensetivity) ||
+ 		(mMode == 1 && x < mRenderX - mSensetivity) ||
+ 		(mMode == 2 && x > mRenderX + mSensetivity + mRenderW) ||
+-		(mMode == 3 && y > mRenderY + mSensetivity + mRenderH && y < center)
++		(mMode == 3 && y > mRenderY + mSensetivity + mRenderH)
+ 		) && !vibrateLock)  {
+ 		#ifndef TW_NO_HAPTICS
+ 			DataManager::Vibrate("tw_button_vibrate");
+diff --git a/gui/scrolllist.cpp b/gui/scrolllist.cpp
+index 2b069413..54b0792c 100755
+--- a/gui/scrolllist.cpp
++++ b/gui/scrolllist.cpp
+@@ -470,7 +470,7 @@ void GUIScrollList::RenderStdItem(int yPos, bool selected, ImageResource* icon,
+ 			int arrowH = groupArrow->GetHeight();
+ 			int arrowW = groupArrow->GetWidth();
+ 			int arrowY = yPos + (iconAndTextH - arrowH) / 2;
+-			int arrowX = mRenderW - groupOffset - 75;
++			int arrowX = mRenderX + mRenderW - groupOffset - 75;
+ 			gr_blit(groupArrow->GetResource(), 0, 0, arrowW, arrowH, arrowX, arrowY);
+ 		}
+ 	} else if (isHighlight) {
+diff --git a/gui/theme/portrait_hdpi/images/Default/FullscreenIcons/empty_folder.png b/gui/theme/portrait_hdpi/images/Default/FullscreenIcons/empty_folder.png
+index 739fcf72df79c290f2f4af759a6b29ffdbf20341..e644a2722682a908872523411b44177d144c6cf3 100644
+GIT binary patch
+literal 28656
+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
+
+literal 16131
+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
+BFp&TN
+
+diff --git a/gui/theme/portrait_hdpi/pages/advanced.xml b/gui/theme/portrait_hdpi/pages/advanced.xml
+index 936a8874..e962a0fd 100644
+--- a/gui/theme/portrait_hdpi/pages/advanced.xml
++++ b/gui/theme/portrait_hdpi/pages/advanced.xml
+@@ -13,7 +13,7 @@
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%files_np_w%"/>
++				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@mount_btn}">
+ 					<icon res="mount_list"/>
+ 					<action function="page">mount</action>
+@@ -36,12 +36,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row4_3_y%"/>
++				<placement x="%gl_text_x%" y="520"/>
+ 				<text>{@listbox_group_additions}</text>
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row5_1_y%" w="%screen_w%" h="%adv_additions_h%"/>
++				<placement x="0" y="550" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@reflash_twrp}">
+ 					<icon res="wrench"/>
+ 					<condition var1="fox_branch" op="&gt;=" var2="11"/>
+@@ -194,7 +194,7 @@
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%files_np_w%"/>
++				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@part_menu_hdr}">
+ 					<icon res="hard_disk"/>
+ 					<action function="page">part_options</action>
+@@ -209,7 +209,7 @@
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row2_3a_y%" w="%screen_w%" h="%files_np_w%"/>
++				<placement x="0" y="%row2_3a_y%" w="%screen_w%" h="600"/>
+ 				<listitem name="{@merges_snapshots}">
+ 					<icon res="build"/>
+ 					<condition var1="fox_branch" op="&gt;=" var2="11"/>
+@@ -544,14 +544,14 @@
+             <text style="caption">
+                 <condition var1="fox_vab_device" var2="1"/>
+                 <condition var1="fox_support_ksu" var2="1"/>
+-                <placement x="%gl_text_x%" y="%row7_1a_y%"/>
++                <placement x="%gl_text_x%" y="590"/>
+                 <text>Other root: needs supported kernel</text>
+             </text>
+ 
+             <listbox style="btn_list">
+                 <condition var1="fox_vab_device" var2="1"/>
+                 <condition var1="fox_support_ksu" var2="1"/>
+-                <placement x="0" y="%row7_2a_y%" w="%screen_w%" h="%bl_h4%"/>
++                <placement x="0" y="620" w="%screen_w%" h="%bl_h4%"/>
+ 
+                 <listitem name="{@module_install} KernelSU %ksu_ver%">
+                     <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
+diff --git a/gui/theme/portrait_hdpi/pages/anywhere.xml b/gui/theme/portrait_hdpi/pages/anywhere.xml
+index 6a0e9dc4..151f80ef 100644
+--- a/gui/theme/portrait_hdpi/pages/anywhere.xml
++++ b/gui/theme/portrait_hdpi/pages/anywhere.xml
+@@ -2,78 +2,9 @@
+ <recovery>
+ 	<pages>
+ 		<page name="lock">
+-			<background color="%background%"/>
+-			<template name="status_bg"/>
+-			<template name="statusbarinfo"/>
+-			<template name="keys"/>
+-
+-			<button>
+-				<condition var1="lock_action" var2="1"/>
+-				<condition var1="clock_style" var2="0"/>
+-				<image resource="unlock_icon"/>
+-				<placement x="%center_x%" y="%center_y%" placement="4"/>
+-				<action function="togglebacklight"/>
+-			</button>
+-
+-			<image>
+-				<condition var1="lock_action" var2="0"/>
+-				<condition var1="clock_style" var2="0"/>
+-				<image resource="unlock_icon"/>
+-				<placement x="%center_x%" y="%center_y%" placement="4"/>
+-			</image>
+-
+-			<text color="%text%">
+-				<condition var1="clock_style" var2="1"/>
+-				<font resource="clock"/>
+-				<placement x="%center_x%" y="%row2_2_y%" placement="4"/>
+-				<text>%tw_time%</text>
+-			</text>
+-
+-			<text color="%text%">
+-				<condition var1="clock_style" var2="1"/>
+-				<condition var1="lock_info" var2="1"/>
+-				<font resource="info"/>
+-				<placement x="%center_x%" y="%row3_2_y%" placement="4"/>
+-				<text>{@cpu_temp} | %tw_battery_charge%</text>
+-			</text>
+-
+-			<text style="text_body1_dark">
+-				<condition var1="lock_btn" var2="0"/>
+-				<condition var1="real_gestures_enable" var2="1"/>
+-				<placement x="%center_x%" y="%slider_y_l%" placement="5"/>
+-				<text>{@swipe_up_to_unlock}</text>
+-			</text>
+-
+-			<gesture>
+-				<condition var1="lock_btn" var2="0"/>
+-				<condition var1="real_gestures_enable" var2="1"/>
+-				<placement x="0" y="%unlock_gest_y%" w="%screen_w%" h="144"/>
+-				<fill color="#00000000"/>
+-				<settings side="0" sense="300" />
+-				<action function="overlay"/>
+-			</gesture>
+-
+-			<text style="caption">
+-				<condition var1="lock_btn" var2="0"/>
+-				<condition var1="real_gestures_enable" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%slider_text_y_l%" placement="5"/>
+-				<text>{@swipe_to_unlock}</text>
+-			</text>
+-
+-			<slider style="slider_action">
+-				<condition var1="lock_btn" var2="0"/>
+-				<condition var1="real_gestures_enable" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%slider_y_l%" placement="5"/>
+-				<action function="overlay"/>
+-			</slider>
+-
+-
+-			<button style="btn_raised_hl">
+-				<condition var1="lock_btn" var2="1"/>
+-				<placement x="%center_x%" y="%slider_y%" placement="4"/>
+-				<text>{@lockscreen_unlock}</text>
++			<action>
+ 				<action function="overlay"/>
+-			</button>
++			</action>
+ 		</page>
+ 
+ 		<page name="console">
+diff --git a/gui/theme/portrait_hdpi/pages/backup.xml b/gui/theme/portrait_hdpi/pages/backup.xml
+index a9d3d2dc..b28c2480 100644
+--- a/gui/theme/portrait_hdpi/pages/backup.xml
++++ b/gui/theme/portrait_hdpi/pages/backup.xml
+@@ -32,27 +32,37 @@
+ 			</action>
+ 		</page>
+ 
+-		<page name="backup_prep">
++				<page name="backup_prep">
++			<action>
++				<action function="set">nav_panel_id=1</action>
++			</action>
++
+ 			<background color="%background%"/>
+ 			<template name="keys"/>
+-			<template name="ab_ex"/>
+-			<template name="statusbarinfo"/>
++			<template name="body_nav"/>
++			<template name="base_nav_basic"/>
+ 
+-			<text style="text_ab_title">
+-				<placement x="%col1_x_indent%" y="%ab_bc_y%"/>
++			<template name="navbar_home"/>
++			<template name="navbar_console"/>
++			<template name="navbar_back_classic"/>
++			<template name="tabs"/>
++
++			<button style="tab_btn_hl">
++				<placement x="800" y="%tab_btn_y%" w="380" h="76"/>
+ 				<text>{@backup_short_hdr}</text>
+-			</text>
++			</button>
+ 
+-			<text style="text_ab_title">
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
+-				<text>%tw_storage_display_name%</text>
+-			</text>
++			<button style="tab_btn">
++				<placement x="1220" y="%tab_btn_y%" w="380" h="76"/>
++				<text>{@restore_hdr}</text>
++				<action function="page">restore</action>
++			</button>
+ 
+-			<text style="text_ab_subtitle">
+-				<placement x="%col1_x%" y="%row1_2_y%"/>
+-				<text>{@part_free}: %tw_storage_free_size%{@mbyte}</text>
+-			</text>
++			<image style="tab">
++				<placement x="834" y="%tab_title_h%" placement="2"/>
++			</image>
+ 
++			<!-- Actionbar right icons -->
+ 			<button style="actionbar">
+ 				<condition var1="tw_include_encrypted_backup" var2="1"/>
+ 				<condition var1="tw_encrypt_backup" var2="0"/>
+@@ -116,13 +126,31 @@
+ 				<image resource="actionbar_storage"/>
+ 			</image>
+ 
++			<!-- LEFT COLUMN: Partition List (X: 60 to 1180, Width: 1120, Height: 750) -->
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row2_1a_y%"/>
++				<placement x="60" y="145"/>
++				<text>{@partitions}</text>
++			</text>
++
++			<partitionlist>
++				<placement x="60" y="180" w="1120" h="740"/>
++				<data name="tw_backup_list"/>
++				<listtype name="backup_total"/>
++			</partitionlist>
++
++			<!-- RIGHT COLUMN: Details, Options, Buttons, and Slider (X: 1240 to 2340) -->
++			<text style="text_ab_subtitle">
++				<placement x="1260" y="145"/>
++				<text>%tw_storage_display_name% ({@part_free}: %tw_storage_free_size%{@mbyte})</text>
++			</text>
++
++			<text style="caption">
++				<placement x="1260" y="210"/>
+ 				<text>{@name}</text>
+ 			</text>
+ 
+ 			<input>
+-				<placement x="%col1_x%" y="%row2_2a_y%" w="%input_w%" h="%input_height%"/>
++				<placement x="1260" y="245" w="1080" h="%input_height%"/>
+ 				<cursor color="%transparent%" hasfocus="0" width="0"/>
+ 				<data name="tw_backup_name"/>
+ 				<restrict disable="1"/>
+@@ -132,86 +160,78 @@
+ 			<fill color="%linecolor%">
+ 				<condition var1="tw_fileexists" var2="0"/>
+ 				<condition var1="tw_backup_name" op="!=" var2="{@auto_gen}"/>
+-				<placement x="%col1_x%" y="%row2_3a_y%" w="%input_w%" h="%input_line_height%" placement="1"/>
++				<placement x="1260" y="305" w="1080" h="%input_line_height%" placement="1"/>
+ 			</fill>
+ 
+ 			<fill color="%linecolor%">
+ 				<condition var1="tw_backup_name" var2="{@auto_gen}"/>
+-				<placement x="%col1_x%" y="%row2_3a_y%" w="%input_w%" h="%input_line_height%" placement="1"/>
++				<placement x="1260" y="305" w="1080" h="%input_line_height%" placement="1"/>
+ 			</fill>
+ 
+ 			<fill color="%text_fail%">
+ 				<condition var1="tw_fileexists" var2="1"/>
+ 				<condition var1="tw_backup_name" op="!=" var2="{@auto_gen}"/>
+-				<placement x="%col1_x%" y="%row2_3a_y%" w="%input_w%" h="%input_line_height%" placement="1"/>
++				<placement x="1260" y="305" w="1080" h="%input_line_height%" placement="1"/>
+ 			</fill>
+ 
+ 			<text style="text_input_fail">
+ 				<condition var1="tw_fileexists" var2="1"/>
+ 				<condition var1="tw_backup_name" op="!=" var2="{@auto_gen}"/>
+-				<placement x="%col1_x%" y="%row2_3a_y%"/>
++				<placement x="1260" y="305"/>
+ 				<text>{@backup_name_exists}</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+ 				<condition var1="tw_backup_name" op="!=" var2="{@auto_gen}"/>
+-				<placement x="%col1_x%" y="%row2_1a_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="1260" y="210" w="1080" h="%mb_h_hide%"/>
+ 				<action function="page">backupname</action>
+ 			</button>
+ 
+ 			<button style="menu_btn">
+ 				<condition var1="tw_backup_name" var2="{@auto_gen}"/>
+-				<placement x="%col1_x" y="%row2_1a_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="1260" y="210" w="1080" h="%mb_h_hide%"/>
+ 				<action function="page">backupname_auto</action>
+ 			</button>
+ 
+-			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row3_1a_y%"/>
+-				<text>{@partitions}</text>
+-			</text>
+-
+-			<partitionlist>
+-				<placement x="0" y="%row3_2a_y%" w="%screen_w%" h="%part_list_btns_h%"/>
+-				<data name="tw_backup_list"/>
+-				<listtype name="backup_total"/>
+-			</partitionlist>
+-
++			<!-- Expected size & time -->
+ 			<text style="text_body1_dark">
+-				<placement x="%col1_x%" y="%part_backup_info_y%" />
++				<placement x="1260" y="350" />
+ 				<text>{@backup_exp_size}:  %fox_total_backup%{@mbyte}</text>
+ 			</text>
+ 			
+ 			<text style="text_body1_dark">
+ 				<condition var1="fox_ai_deep_learning_time" op="&lt;" var2="1"/>
+-				<placement x="%col1_x_neg%" y="%part_backup_info_y%" placement="1"/>
++				<placement x="2340" y="350" placement="1"/>
+ 				<text>~&lt;1 {@time_minute}</text>
+ 			</text>
+ 			<text style="text_body1_dark">
+ 				<condition var1="fox_ai_deep_learning_time" op="&gt;=" var2="1"/>
+-				<placement x="%col1_x_neg%" y="%part_backup_info_y%" placement="1"/>
++				<placement x="2340" y="350" placement="1"/>
+ 				<text>~%fox_ai_deep_learning_time% {@time_minute}</text>
+ 			</text>
+ 
++			<!-- Action buttons -->
+ 			<button style="btn_raised">
+-				<placement x="%btn_raised_left_x%" y="%row_btn2_y%"/>
++				<placement x="1260" y="420" w="500" h="64"/>
+ 				<text>{@bkp_clear}</text>
+ 				<action function="set">tw_backup_list=</action>
+ 			</button>
+ 
+ 			<button style="btn_raised_hl">
+-				<placement x="%btn_raised_right_x%" y="%row_btn2_y%" placement="1"/>
++				<placement x="1840" y="420" w="500" h="64"/>
+ 				<text>{@bkp_quick}</text>
+ 				<action function="set">tw_backup_list=%tw_backup_list_quick%</action>
+ 			</button>
+ 
++			<!-- Swipe to Backup slider (Centered in right column: X = 1800, Y = 650) -->
+ 			<text style="caption">
+-				<placement x="%center_x%" y="%slider_text_y%" placement="5"/>
++				<placement x="1800" y="585" placement="5"/>
+ 				<text>{@swipe_backup}</text>
+ 			</text>
+ 
+ 			<slider style="slider_action">
+ 				<condition var1="tw_backup_name" op="!=" var2="{@auto_gen}"/>
+-				<placement x="%center_x%" y="%slider_y%" placement="5"/>
++				<placement x="1800" y="640" placement="5"/>
+ 				<action function="set">tw_filecheck=%tw_backups_folder%/%tw_backup_name%</action>
+ 				<action function="set">tw_existpage=backup</action>
+ 				<action function="set">tw_notexistpage=backup_run</action>
+@@ -220,10 +240,11 @@
+ 
+ 			<slider style="slider_action">
+ 				<condition var1="tw_backup_name" var2="{@auto_gen}"/>
+-				<placement x="%center_x%" y="%slider_y%" placement="5"/>
++				<placement x="1800" y="640" placement="5"/>
+ 				<action function="page">backup_run</action>
+ 			</slider>
+ 
++			<!-- Storage Dialog Overlay -->
+ 			<button>
+ 				<condition var1="of_show_storage_selection" var2="1"/>
+ 				<fill color="%darktransparent%"/>
+@@ -264,7 +285,7 @@
+ 
+ 			<action>
+ 				<touch key="back"/>
+-				<action function="page">check_storage_back</action>
++				<action function="page">main</action>
+ 			</action>
+ 		</page>
+ 
+diff --git a/gui/theme/portrait_hdpi/pages/files.xml b/gui/theme/portrait_hdpi/pages/files.xml
+index c4b4fc06..62d93646 100644
+--- a/gui/theme/portrait_hdpi/pages/files.xml
++++ b/gui/theme/portrait_hdpi/pages/files.xml
+@@ -53,7 +53,7 @@
+ 			</image>
+ 
+ 			<fill color="%background%">
+-				<placement x="48" y="%search_bar_line_y%" w="984" h="4"/>
++				<placement x="48" y="%search_bar_line_y%" w="%search_bar_w%" h="4"/>
+ 			</fill>
+ 			
+ 			<button>
+@@ -73,7 +73,7 @@
+ 			<text>
+ 				<font resource="body1" color="%text_dark%"/>
+ 				<placement x="%col1_x_indent%" y="%path_text_y%"/>
+-				<limit length="38"/>
++				<limit length="90"/>
+ 				<text>%tw_file_location1%</text>
+ 			</text>
+ 
+@@ -85,7 +85,7 @@
+ 			<!--arrow-->
+ 
+ 			<button style="menu_btn">
+-				<placement x="0" y="%path_y%" w="1080" h="92" />
++				<placement x="0" y="%path_y%" w="%screen_w%" h="92" />
+ 				<action function="set">tw_filename1=tw_file_location1</action>
+ 				<action function="set">tw_file_location1_tmp=tw_file_location1</action>
+ 				<action function="set">tw_fm_isfolder=1</action>
+@@ -93,12 +93,12 @@
+ 			</button>
+ 			
+ 			<button style="actionbar">
+-				<placement x="816" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_sort_x%" y="%ab_search_y%" placement="4"/>
+ 				<action function="overlay">fm_sort</action>
+ 			</button>
+ 
+ 			<image>
+-				<placement x="816" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_sort_x%" y="%ab_search_y%" placement="4"/>
+ 				<image resource="actionbar_sort"/>
+ 			</image>
+ 
+@@ -108,12 +108,12 @@
+ 			</image>
+ 
+ 			<button style="actionbar">
+-				<placement x="954" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_menu_x%" y="%ab_search_y%" placement="4"/>
+ 				<action function="page">menu</action>
+ 			</button>
+ 
+ 			<image>
+-				<placement x="954" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_menu_x%" y="%ab_search_y%" placement="4"/>
+ 				<image resource="actionbar_menu"/>
+ 			</image>
+ 			
+@@ -178,7 +178,7 @@
+ 			<template name="files_qa_base"/>
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<data name="tw_file_location1_tmp"/>
+ 				<text>%tw_file_location1_tmp%</text>
+ 				<action function="set">tw_file_location1=tw_file_location1_tmp</action>
+@@ -190,7 +190,7 @@
+ 			<template name="files_sp_base"/>
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<data name="location_input_tmp"/>
+ 				<text>%location_input_tmp%</text>
+ 				<action function="set">tw_zip_location_tmp=location_input_tmp</action>
+@@ -383,7 +383,7 @@
+ 			
+ 			<input>
+ 				<background color="%background%"/>
+-				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="816" h="%input_height%"/>
++				<placement x="%col1_x_indent%" y="%ab_bc_search_y%"  w="%screen_w%-264" h="%input_height%"/>
+ 				<text>%tw_name_filter%</text>
+ 				<data name="tw_name_filter"/>
+ 				<action function="set">tw_reload_fm=1</action>
+diff --git a/gui/theme/portrait_hdpi/pages/restore.xml b/gui/theme/portrait_hdpi/pages/restore.xml
+index 835b6ec8..e0590089 100644
+--- a/gui/theme/portrait_hdpi/pages/restore.xml
++++ b/gui/theme/portrait_hdpi/pages/restore.xml
+@@ -42,17 +42,27 @@
+ 			</fileselector>
+ 
+ 			<template name="body_nav"/>
+-			<template name="ab_main"/>
+ 			<template name="base_nav_basic"/>
++			<template name="tabs"/>
+ 
+-			<text style="text_ab_subtitle">
+-				<placement x="%center_x%" y="%ab_bc_double_d_y%" placement="5"/>
+-				<text>%tw_storage_display_name% (%tw_storage_free_size%{@mbyte})</text>
+-			</text>
++			<button style="tab_btn">
++				<placement x="800" y="%tab_btn_y%" w="380" h="84"/>
++				<text>{@backup_short_hdr}</text>
++				<action function="page">backup</action>
++			</button>
+ 
+-			<text style="text_ab_title">
+-				<placement x="%center_x%" y="%ab_bc_double_u_y%" placement="5"/>
++			<button style="tab_btn_hl">
++				<placement x="1220" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@restore_hdr}</text>
++			</button>
++
++			<image style="tab">
++				<placement x="1254" y="%tab_title_h%" placement="2"/>
++			</image>
++
++			<text style="text_ab_subtitle">
++				<placement x="%center_x%" y="145" placement="5"/>
++				<text>%tw_storage_display_name% (%tw_storage_free_size%{@mbyte})</text>
+ 			</text>
+ 
+ 			<button style="actionbar">
+@@ -120,34 +130,34 @@
+ 			<image>
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<image resource="empty_folder"/>
+-				<placement x="304" y="%row1_3_y%"/>
++				<placement x="%center_x%" y="330" placement="4"/>
+ 			</image>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="%row5_1_y%" placement="4"/>
++				<placement x="%center_x%" y="475" placement="4"/>
+ 				<text>{@backups_wat}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%row5_2_y%" placement="4"/>
++				<placement x="%center_x%" y="475" placement="4"/>
+ 				<text>{@backups_rw_error_1}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%row5_3a_y%" placement="4"/>
++				<placement x="%center_x%" y="475" placement="4"/>
+ 				<text>{@backups_rw_error_2}</text>
+ 			</text>
+ 
+ 			<button style="btn_raised_hl">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="%row6_1a_y%" placement="4"/>
++				<placement x="%center_x%" y="555" placement="4"/>
+ 				<text>{@backup_short_hdr}</text>
+ 				<action function="set">tw_encrypt_backup=0</action>
+ 				<action function="set">tw_backup_password=</action>
+@@ -158,7 +168,7 @@
+ 			<button style="btn_raised">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<text>{@select_storage_hdr}</text>
+-				<placement x="%center_x%" y="%row7_1_y%" placement="4"/>
++				<placement x="%center_x%" y="635" placement="4"/>
+ 				<action function="set">of_show_storage_selection=1</action>
+ 			</button>
+ 			
+diff --git a/gui/theme/portrait_hdpi/pages/settings.xml b/gui/theme/portrait_hdpi/pages/settings.xml
+index db827849..cc33ca3c 100644
+--- a/gui/theme/portrait_hdpi/pages/settings.xml
++++ b/gui/theme/portrait_hdpi/pages/settings.xml
+@@ -5,7 +5,7 @@
+ 		<page name="settings">
+ 			<listbox style="group_list">
+ 				<placement x="0" y="%ab_h%" w="%screen_w%" h="%bl_fullscreen_h%"/>
+-				<iconsize w="216" h="168" padding="24"/>
++				<iconsize w="180" h="84" padding="16"/>
+ 				<listitem name="{@settings_general}">
+ 					<icon res="bs_btn_set_global"/>
+ 					<action function="set">general_back=settings</action>
+@@ -649,42 +649,42 @@
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
++				<placement x="%gl_text_x%" y="145"/>
+ 				<text>{@settings_backup_qbkp_custom}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="%row1_2_y%"/>
++				<placement x="%gl_text_x%" y="175"/>
+ 				<text>%tw_backup_list_quick%</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="%row1_1_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="%gl_text_x%" y="145" w="%input_w%" h="%mb_h_hide%"/>
+ 				<action function="page">ext_backup_quick</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row2_1_y%"/>
++				<placement x="%gl_text_x%" y="225"/>
+ 				<text>{@backup_av}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="%row2_2_y%"/>
++				<placement x="%gl_text_x%" y="255"/>
+ 				<text>{@backup_av_files}: %of_average_file% (%of_average_ext_file%) | {@backup_av_img}: %of_average_img% (%of_average_ext_img%) {@mbytesec}</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="%row2_1_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="%gl_text_x%" y="225" w="%input_w%" h="%mb_h_hide%"/>
+ 				<action function="overlay">dialog_reset_average</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row3_1_y%"/>
++				<placement x="%gl_text_x%" y="305"/>
+ 				<text>{@settings_backup_name}</text>
+ 			</text>
+ 
+ 			<listbox style="radiobox_group">
+-				<placement x="0" y="%row3_2_y%" w="%screen_w%" h="%lb_group_l3%"/>
++				<placement x="0" y="335" w="%screen_w%" h="%lb_group_l3%"/>
+ 				<data name="auto_generate"/>
+ 				<listitem name="{@settings_backup_name_user}">2</listitem>
+ 				<listitem name="{@settings_backup_name_auto}">1</listitem>
+@@ -692,12 +692,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row5_2a_y%"/>
+-				<text>{@cust_oth}</text>
++				<placement x="%gl_text_x%" y="495"/>
++			<text>{@cust_oth}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="%row5_3a_y%" w="%screen_w%" h="%lb_group_l7%"/>
++				<placement x="0" y="530" w="%screen_w%" h="380"/>
+ 				<listitem name="{@enable_backup_comp_chk}">
+ 					<data variable="tw_use_compression"/>
+ 				</listitem>
+@@ -746,12 +746,12 @@
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
++				<placement x="%gl_text_x%" y="145"/>
+ 				<text>{@sel_tz_list}</text>
+ 			</text>
+ 
+ 			<listbox style="radiobox_group">
+-				<placement x="0" y="%row1_2_y%" w="%screen_w%" h="%lb_group_l7%"/>
++				<placement x="0" y="175" w="%screen_w%" h="230"/>
+ 				<data name="tw_time_zone_guisel"/>
+ 				<listitem name="{@utcm11}">BST11;BDT</listitem>
+ 				<listitem name="{@utcm10}">HST10;HDT</listitem>
+@@ -780,12 +780,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row5_2a_y%"/>
++				<placement x="%gl_text_x%" y="420"/>
+ 				<text>{@options_cptn}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="%row5_3a_y%" w="%screen_w%" h="%lb_group_l2%"/>
++				<placement x="0" y="450" w="%screen_w%" h="120"/>
+ 				<listitem name="{@use_dst_chk}">
+ 					<data variable="tw_time_zone_guidst"/>
+ 				</listitem>
+@@ -795,44 +795,43 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row7_2a_y%"/>
++				<placement x="%gl_text_x%" y="585"/>
+ 				<text>{@tz_offset}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="%row7_3a_y%"/>
++				<placement x="%gl_text_x%" y="615"/>
+ 				<text>{@sel_tz_offset}</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="%row7_2a_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="%gl_text_x%" y="585" w="%input_w%" h="%mb_h_hide%"/>
+ 				<action function="set">zone_temp=%tw_time_zone_guioffset%</action>
+ 				<action function="set">zone_error=0</action>
+ 				<action function="page">ext_time_offset</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row8_2a_y%"/>
++				<placement x="%gl_text_x%" y="675"/>
+ 				<text>{@language_cptn}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="%row8_3a_y%"/>
++				<placement x="%gl_text_x%" y="705"/>
+ 				<text>%tw_language_display%</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="%row8_2a_y%" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="%gl_text_x%" y="675" w="%input_w%" h="%mb_h_hide%"/>
+ 				<action function="page">ext_time_lang</action>
+ 			</button>
+ 
+ 			<action>
+ 				<condition var1="tw_time_zone_guisel" op="modified"/>
+-				<action function="page">ext_time</action>
+-				<action function="setguitimezone"/>
++				<action function="page">check_zone</action>
+ 			</action>
+ 
+-			<template name="gestures"/>
++			<template name="gestures_key"/>
+ 
+ 			<action>
+ 				<touch key="home"/>
+diff --git a/gui/theme/portrait_hdpi/pages/templates/base.xml b/gui/theme/portrait_hdpi/pages/templates/base.xml
+index 1c3cc323..0af24c67 100644
+--- a/gui/theme/portrait_hdpi/pages/templates/base.xml
++++ b/gui/theme/portrait_hdpi/pages/templates/base.xml
+@@ -200,7 +200,7 @@
+ 			<button style="nav_panel_btn">
+ 				<placement x="%nav_item_2%" y="%nav_item_y%" placement="4"/>
+ 				<condition var1="nav_panel_id" op="!=" var2="1"/>
+-				<action function="page">restore</action>
++				<action function="page">backup</action>
+ 			</button>
+ 			
+ 			<image>
+diff --git a/gui/theme/portrait_hdpi/pages/templates/navbar.xml b/gui/theme/portrait_hdpi/pages/templates/navbar.xml
+index 00ad8196..ace8cfc7 100644
+--- a/gui/theme/portrait_hdpi/pages/templates/navbar.xml
++++ b/gui/theme/portrait_hdpi/pages/templates/navbar.xml
+@@ -5,6 +5,7 @@
+ 			<image>
+ 				<condition var1="tw_busy" var2="0"/>
+ 				<condition var1="real_gestures_enable" var2="1"/>
++				<condition var1="floating_panel" op="!=" var2="1"/>
+ 				<placement x="%center_x%" y="%gst_line_y%" placement="4"/>
+ 				<image resource="nb_gesture_line"/>
+ 			</image>
+diff --git a/gui/theme/portrait_hdpi/pages/wipe.xml b/gui/theme/portrait_hdpi/pages/wipe.xml
+index b8899de3..f1d959a2 100644
+--- a/gui/theme/portrait_hdpi/pages/wipe.xml
++++ b/gui/theme/portrait_hdpi/pages/wipe.xml
+@@ -16,24 +16,21 @@
+ 			<template name="tabs"/>
+ 			
+ 			<button style="tab_btn_hl">
+-				<placement x="156" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="800" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@wipe_hdr}</text>
+ 			</button>
+ 
+ 			<button style="tab_btn">
+-				<placement x="564" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="1220" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@format_data_hdr}</text>
+ 				<action function="page">formatdata</action>
+ 			</button>
+ 			
+ 			<image style="tab">
+-				<placement x="180" y="%tab_title_h%" placement="2"/>
++				<placement x="834" y="%tab_title_h%" placement="2"/>
+ 			</image>
+ 
+-			<text style="text_ab_title">
+-				<placement x="%center_x%" y="%ab_bc_y%" placement="5"/>
+-				<text>{@wipe_hdr}</text>
+-			</text>
++<!-- Duplicate wipe header removed -->
+ 
+ 			<text style="caption">
+ 				<placement x="%gl_text_x%" y="%row1_3_y%"/>
+@@ -93,24 +90,21 @@
+ 			<template name="tabs"/>
+ 			
+ 			<button style="tab_btn">
+-				<placement x="156" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="800" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@wipe_hdr}</text>
+ 				<action function="page">wipe</action>
+ 			</button>
+ 
+ 			<button style="tab_btn_hl">
+-				<placement x="564" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="1220" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@format_data_hdr}</text>
+ 			</button>
+ 			
+ 			<image style="tab">
+-				<placement x="588" y="%tab_title_h%" placement="2"/>
++				<placement x="1254" y="%tab_title_h%" placement="2"/>
+ 			</image>
+ 
+-			<text style="text_ab_title">
+-				<placement x="%center_x%" y="%ab_bc_y%" placement="5"/>
+-				<text>{@wipe_hdr}</text>
+-			</text>
++<!-- Duplicate wipe header removed -->
+ 
+ 			<button style="actionbar">
+ 				<placement x="%ab_btn1_x%" y="%ab_y%" placement="4"/>
+diff --git a/gui/theme/portrait_hdpi/resources/images.xml b/gui/theme/portrait_hdpi/resources/images.xml
+index 1d8dec09..94e5bc2d 100644
+--- a/gui/theme/portrait_hdpi/resources/images.xml
++++ b/gui/theme/portrait_hdpi/resources/images.xml
+@@ -17,13 +17,13 @@
+ 		<shape name="btn_flat_qw" w="%btn_half_w%" h="%btn_h%" radius="-1" stroke="3" color="#666666"/>
+ 
+ 		<shape name="btn_raised_warn" w="%btn_w%" h="%btn_h%" radius="-1" color="#E51C23" />
+-		<shape name="nav_empty" w="200" h="168" color="#00000000"/>
+-		<shape name="nav_hl" color="#B8B8B842" radius="36" w="200" h="168"/>
++		<shape name="nav_empty" w="200" h="100" color="#00000000"/>
++		<shape name="nav_hl" color="#B8B8B842" radius="28" w="200" h="100"/>
+ 		<shape name="nb_gesture_line" w="210" h="7" color="%text%" radius="-1" />
+-		<shape name="search_bar_bg" color="%cards_bg%" radius="36" w="984" h="260" />
++		<shape name="search_bar_bg" color="%cards_bg%" radius="20" w="%search_bar_w%" h="80" />
+ 		<shape name="nav_pill" color="%accent%" radius="-1" w="%np_pill_w%" h="%np_pill_h%" />
+ 
+-		<shape name="power_card" color="%cards_bg%" radius="32" w="324" h="294" />
++		<shape name="power_card" color="%cards_bg%" radius="24" w="280" h="190" />
+ 
+ 		<shape name="nb_empty" color="#00000000" w="318" h="144" />
+ 		<shape name="nb_hl" color="#B8B8B842" radius="-1" w="318" h="144" />
+@@ -31,15 +31,15 @@
+ 		<shape name="nav_bg" color="%cards_bg%" radius="36" w="%nav_panel_w%" h="%nav_panel_h%" />
+ 
+ 		<!-- Main switch background -->
+-		<shape name="main_switch_card_active" color="%accent%" radius="48" w="1000" h="168"/>
+-		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="48" w="1000" h="168"/>
++		<shape name="main_switch_card_active" color="%accent%" radius="32" w="%main_switch_w%" h="110"/>
++		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="32" w="%main_switch_w%" h="110"/>
+ 
+ 		<!-- Current maintainer chip -->
+ 		<shape name="maintainer_chip_bg" color="%accent%" radius="32" w="270" h="70"/>
+ 
+ 		<!-- FAB -->
+-		<shape name="fab" color="%accent%" radius="-1" w="168" h="168" />
+-		<shape name="fab_hl" color="%cards_bg%" radius="-1" w="168" h="168" />
++		<shape name="fab" color="%accent%" radius="-1" w="120" h="120" />
++		<shape name="fab_hl" color="%cards_bg%" radius="-1" w="120" h="120" />
+ 		<shape name="tab_hl" color="%accent%" radius="-1" w="312" h="8" />
+ 		
+ 		<image name="actionbar_btn" filename="Default/ActionBar/actionbar_btn" retainaspect="1"/>
+diff --git a/gui/theme/portrait_hdpi/resources/styles.xml b/gui/theme/portrait_hdpi/resources/styles.xml
+index cec160fa..1ad2a644 100644
+--- a/gui/theme/portrait_hdpi/resources/styles.xml
++++ b/gui/theme/portrait_hdpi/resources/styles.xml
+@@ -183,18 +183,18 @@
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="%col1_x_caption%" h="68" padding="18"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+ 		<style name="settingslist_group">
+ 			<highlight color="%highlight_color_full%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="10" bottom="10"/>
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="100" h="52" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -205,12 +205,12 @@
+ 
+ 		<style name="radiobox_group">
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="12" bottom="12"/>
+ 			<background color="%background%"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="radio_true" unselected="radio_false" />
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="100" h="52" padding="12"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 		
+@@ -241,7 +241,7 @@
+ 			<group arrowresource="arrow_r" color="%groupitems_clr%"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+-			<iconsize w="216" h="%bl_h1%" padding="24"/>
++			<iconsize w="160" h="%bl_h1%" padding="16"/>
+ 			<font resource="button" spacing="%fileselector_spacing%" color="%text_menu%"/>
+ 		</style>
+ 
+@@ -257,11 +257,11 @@
+ 		<style name="partitionlist">
+ 			<background color="%background%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="10" bottom="10"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false" />
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="100" h="52" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -292,7 +292,7 @@
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<background color="%background%" />
+ 			<exicon up="up_icon" link="link_icon" block="block_icon"  zip="zip_icon" img="img_icon" txt="txt_icon" png="png_icon" />
+-			<iconsize w="216" h="168" padding="0" bg="fs_bg_big" />
++			<iconsize w="160" h="110" padding="0" bg="fs_bg_big" />
+ 			<font resource="body2" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -301,7 +301,7 @@
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<background color="%background%" />
+ 			<exicon up="up_icon_small" link="link_icon_small" block="block_icon_small" zip="zip_icon_small" img="img_icon_small" txt="txt_icon_small" png="png_icon_small" />
+-			<iconsize w="128" h="96" padding="-4" />
++			<iconsize w="110" h="80" padding="-4" />
+ 			<font resource="body2" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index 7dcffc29..876db65e 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -24,8 +24,7 @@
+ 		<variable name="clock_style" value="1" persist="1"/>
+ 		<variable name="lock_action" value="0" persist="1"/>
+ 		<variable name="lock_info" value="1" persist="1"/>
+-		<!--variable name="lock_btn" value="0" persist="1"/-->
+-		<variable name="lock_btn" persist="1"/>
++		<variable name="lock_btn" value="1" persist="1"/>
+ 
+ 		<!-- Device settings -->
+ 		<variable name="charging_now" value="0"/>
+@@ -33,7 +32,7 @@
+ 		<variable name="navbar_check" value="0" persist="1"/>
+ 		<variable name="tw_enable_keys" value="1" persist="1"/>
+ 		<variable name="adb_startup" value="1" persist="1"/>
+-		<variable name="fox_adv_backup" value="0" persist="1"/>
++		<variable name="fox_adv_backup" value="1" persist="1"/>
+ 		
+ 		<!-- Favorites menu -->
+ 		<variable name="book_1" value="/sdcard/Fox" persist="1"/>
+@@ -62,7 +61,7 @@
+ 		<variable name="key_numbar" value="0" persist="1"/>
+ 		<variable name="use_fixed_font" value="1" persist="1"/>
+ 		<variable name="show_cpu_temp" value="1" persist="1"/>
+-		<variable name="list_font" value="1" persist="1"/>
++		<variable name="list_font" value="0" persist="1"/>
+ 		<variable name="navbar_sams" value="0" persist="1"/>
+ 		<variable name="show_slideout" value="1" persist="1"/>
+ 		<variable name="style_battery" value="2" persist="1"/>
+@@ -102,102 +101,101 @@
+ 
+ 		<!-- Placement -->
+ 		<variable name="welcome_logo" value="%center_y%-180"/>
+-		<variable name="welcome_text" value="%center_y%+180"/>
+-		<variable name="welcome_text2" value="%center_y%+260"/>
+-		<variable name="empty_text_y" value="%center_y%+288"/>
++		<variable name="welcome_text" value="%center_y%+60"/>
++		<variable name="welcome_text2" value="%center_y%+120"/>
++		<variable name="empty_text_y" value="%center_y%+140"/>
+ 		
+ 		<!-- Screen size -->
+-		<variable name="cutout_w" value="%status_h%-72"/>
+-		<variable name="center_x" value="540"/>
+-		<variable name="screen_w" value="1080"/>
+-		<variable name="screen_min_cut" value="%screen_h%-%cutout_w%"/>
+-		<variable name="screen_plus_cut" value="%screen_h%+%cutout_w%"/>
++		<variable name="cutout_w" value="0"/>
++		<variable name="center_x" value="1200"/>
++		<variable name="screen_w" value="2400"/>
++		<variable name="screen_min_cut" value="%screen_h%"/>
++		<variable name="screen_plus_cut" value="%screen_h%"/>
+ 
+ 		<!-- EDL -->
+ 		<variable name="tw_edl_mode" value="%tw_edl_mode%"/>
+ 
+ 		<!-- OTA -->
+-		<variable name="ota_update_title_y" value="%center_y%+320"/>
+-		<variable name="ota_update_progress_y" value="%center_y%+400"/>
++		<variable name="ota_update_title_y" value="%center_y%+100"/>
++		<variable name="ota_update_progress_y" value="%center_y%+160"/>
+ 		<variable name="ota_update_progress_x" value="326"/>
+-		<variable name="ota_update_log_y" value="%center_y%+600"/>
++		<variable name="ota_update_log_y" value="%center_y%+240"/>
+ 		
+ 		<!-- FAB above NavPanel -->
+-		<variable name="btn_float_size" value="168"/>
+-		<variable name="btn_float_x" value="948"/>
+-		<variable name="btn_float_y" value="%screen_h%-294"/>
+-		<variable name="btn_float_nav_y" value="%screen_h%-444"/>
+-		<variable name="btn_sfloat_1_y" value="%screen_h%-1104"/>
+-		<variable name="btn_sfloat_2_y" value="%screen_h%-924"/>
+-		<variable name="btn_sfloat_3_y" value="%screen_h%-744"/>
++		<variable name="btn_float_size" value="120"/>
++		<variable name="btn_float_x" value="%screen_w%-120"/>
++		<variable name="btn_float_y" value="%screen_h%-150"/>
++		<variable name="btn_float_nav_y" value="%screen_h%-210"/>
++		<variable name="btn_sfloat_1_y" value="%screen_h%-500"/>
++		<variable name="btn_sfloat_2_y" value="%screen_h%-400"/>
++		<variable name="btn_sfloat_3_y" value="%screen_h%-300"/>
+ 		
+ 		<!-- NavPanel -->
+-		<variable name="nav_item_w" value="270"/>
+-		<variable name="nav_panel_h" value="216"/>
++		<variable name="nav_item_w" value="576"/>
++		<variable name="nav_panel_h" value="116"/>
+ 		<variable name="nav_panel_full_h" value="%screen_w%-360"/>
+ 		<variable name="nav_panel_id" value="0"/>
+ 		<variable name="nav_panel_w" value="%screen_w%-96"/>
+ 		<variable name="nav_panel_x" value="48"/>
+-		<variable name="nav_panel_y" value="%screen_h%-360"/>
+-		<variable name="nav_icon_y" value="%screen_h%-282"/>
+-		<variable name="nav_text_y" value="%screen_h%-202"/>
+-		<variable name="nav_item_y" value="%screen_h%-252"/>
+-		<variable name="nav_item_1" value="171"/>
+-		<variable name="nav_item_2" value="417"/>
+-		<variable name="nav_item_3" value="663"/>
+-		<variable name="nav_item_4" value="909"/>
++		<variable name="nav_panel_y" value="%screen_h%-126"/>
++		<variable name="nav_icon_y" value="%screen_h%-82"/>
++		<variable name="nav_text_y" value="%screen_h%-36"/>
++		<variable name="nav_item_y" value="%screen_h%-68"/>
++		<variable name="nav_item_1" value="336"/>
++		<variable name="nav_item_2" value="912"/>
++		<variable name="nav_item_3" value="1488"/>
++		<variable name="nav_item_4" value="2064"/>
+ 		<variable name="nav_path_w" value="648"/>
+-
+ 		
+-		<variable name="np_pill_w" value="192"/>
+-		<variable name="np_pill_h" value="96"/>
+-		<variable name="np_pill_y" value="%screen_h%-330"/>
+-		<variable name="np_pill_x1" value="75"/> <!-- 48 + 27 -->
+-		<variable name="np_pill_x2" value="321"/> <!-- 48 + 27 + np_pill_w + 27 + 27 -->
+-		<variable name="np_pill_x3" value="567"/>
+-		<variable name="np_pill_x4" value="813"/>
++		<variable name="np_pill_w" value="180"/>
++		<variable name="np_pill_h" value="64"/>
++		<variable name="np_pill_y" value="%screen_h%-114"/>
++		<variable name="np_pill_x1" value="246"/>
++		<variable name="np_pill_x2" value="822"/>
++		<variable name="np_pill_x3" value="1398"/>
++		<variable name="np_pill_x4" value="1974"/>
+ 		
+ 		<!-- File Selector w/ NavPanel -->
+-		<variable name="files_np_w" value="%screen_min_cut%-600"/>
+-		<variable name="files_np_mm_y" value="408+%cutout_w%"/>
++		<variable name="files_np_w" value="%screen_min_cut%-280"/>
++		<variable name="files_np_mm_y" value="150"/>
+ 		
+ 		<!-- UI w/ NavPanel -->
+-		<variable name="slider_np_y" value="%screen_h%-534"/>
+-		<variable name="slider_text_np_y" value="%screen_h%-642"/>
+-		<variable name="slider_text_y_l" value="%screen_original_h%-281"/>
++		<variable name="slider_np_y" value="820"/>
++		<variable name="slider_text_np_y" value="785"/>
++		<variable name="slider_text_y_l" value="%screen_original_h%-200"/>
+ 		
+ 		<!-- Wait screens -->
+-		<variable name="busy_text" value="%screen_original_h%-144"/>
++		<variable name="busy_text" value="%screen_original_h%-100"/>
+ 		
+ 		<!-- AR UI -->
+-		<variable name="magisk_list_h" value="%screen_min_cut%-882"/>
+-		<variable name="fullscreen_list_h" value="%screen_min_cut%-504"/>
+-		<variable name="fullscreen_list_info_h" value="%screen_min_cut%-732"/>
+-		<variable name="part_list_btns_h" value="%screen_min_cut%-1446"/> <!-- Backup parts -->
+-		<variable name="part_backup_info_y" value="%screen_h%-678"/>
+-		<variable name="part_backup_line_y" value="%screen_h%-696"/>
+-		<variable name="part_list_btns_9_h" value="%screen_min_cut%-1188"/> <!-- Wipe parts -->
+-		<variable name="part_list_mount_h" value="%screen_min_cut%-654"/> <!-- Mount parts -->
+-		
+-		<!--variable name="flash_img_part_expanded" value="%screen_min_cut%-1122"/-->
+-		<variable name="flash_img_part" value="%screen_min_cut%-1396"/>
+-		<variable name="restore_part" value="%screen_min_cut%-1506"/>
++		<variable name="magisk_list_h" value="%screen_min_cut%-300"/>
++		<variable name="fullscreen_list_h" value="%screen_min_cut%-300"/>
++		<variable name="fullscreen_list_info_h" value="%screen_min_cut%-420"/>
++		<variable name="part_list_btns_h" value="280"/>
++<!-- Backup parts: 1080 - 550 = 530px tall -->
++		<variable name="part_backup_info_y" value="665"/>
++		<variable name="part_backup_line_y" value="690"/>
++		<variable name="part_list_btns_9_h" value="460"/> <!-- Wipe parts: 1080 - 460 = 620px tall -->
++		<variable name="part_list_mount_h" value="%screen_min_cut%-320"/> <!-- Mount parts: 1080 - 320 = 760px tall -->
++		
++		<variable name="flash_img_part" value="%screen_min_cut%-460"/>
++		<variable name="restore_part" value="%screen_min_cut%-460"/>
+ 
+ 		<!-- Workshop -->
+-		<variable name="ws_cards_y1" value="%cutout_w%+488"/>
+-		<variable name="ws_cards_y2" value="%cutout_w%+848"/>
+-		<variable name="ws_cards_y3" value="%cutout_w%+1208"/>
+-		<variable name="ws_cards_y4" value="%cutout_w%+1464"/>
+-		<variable name="ws_cards_y5" value="%cutout_w%+1720"/>
++		<variable name="ws_cards_y1" value="180"/>
++		<variable name="ws_cards_y2" value="340"/>
++		<variable name="ws_cards_y3" value="500"/>
++		<variable name="ws_cards_y4" value="660"/>
++		<variable name="ws_cards_y5" value="820"/>
+ 		<variable name="ws_cards_x1" value="156"/>
+ 		<variable name="ws_cards_x2" value="412"/>
+ 		<variable name="ws_cards_x3" value="668"/>
+ 		<variable name="ws_cards_x4" value="924"/>
+ 		
+ 		<!-- Splash -->
+-		<variable name="spl_preview_h" value="720"/>
++		<variable name="spl_preview_h" value="360"/>
+ 		<variable name="spl_preview_bg" value="%screen_h%-%row4_3_y%"/>
+-		<variable name="spl_list_h" value="%screen_min_cut%-1104"/>
++		<variable name="spl_list_h" value="380"/>
+ 		
+ 		<!-- Favorites -->
+ 		<variable name="book_edit" value="0"/>
+@@ -218,247 +216,256 @@
+ 		<variable name="dbg_b" value="main"/>
+ 
+ 		<!-- Power Menu -->
+-		<variable name="pc_y" value="%cutout_w%+108"/>
+-		<variable name="pc_icon_y" value="%cutout_w%+240"/>
+-		<variable name="pc_text_y" value="%cutout_w%+320"/>
++		<variable name="pc_y" value="60"/>
++		<variable name="pc_icon_y" value="120"/>
++		<variable name="pc_text_y" value="160"/>
+ 		
+ 		<!-- Content placement -->
+ 		<variable name="col1_x" value="48"/>
+-		<variable name="col1_x_neg" value="1032"/>
++		<variable name="col1_x_neg" value="%screen_w%-48"/>
+ 		<variable name="col1_x_indent" value="216"/>
+ 		<variable name="col1_x_small_indent" value="150"/>
+ 
+ 		<variable name="col1_x_caption" value="216"/>
+-		<variable name="input_w" value="984"/>
+-		<variable name="input_backup_w" value="905"/>
++		<variable name="input_w" value="%screen_w%-96"/>
++		<variable name="input_backup_w" value="%screen_w%-175"/>
+ 		
+ 		<variable name="col_col_center_x" value="386"/>
+ 		<variable name="col_x_color3" value="724"/>
+ 		<variable name="col2_x" value="708"/>
+ 		<variable name="col2_x_text" value="596"/>
+ 		<variable name="col1_set_x" value="24"/>
+-		<variable name="content_w" value="984"/>
++		<variable name="content_w" value="%screen_w%-96"/>
+ 		<variable name="listbox_tz_width_2" value="540"/>
+-		<variable name="fm_search_h" value="%screen_min_cut%-1028"/>
+-		<variable name="fm_search_num_h" value="%screen_min_cut%-1140"/>
+-		<variable name="modern_storage_shadow_y" value="%cutout_w%+816"/>
+-		<variable name="modern_storage_h" value="456"/>
++		<variable name="fm_search_h" value="%screen_min_cut%-300"/>
++		<variable name="fm_search_num_h" value="%screen_min_cut%-380"/>
++		<variable name="modern_storage_shadow_y" value="300"/>
++		<variable name="modern_storage_h" value="400"/>
+ 
+ 		<variable name="warn_center_y" value="%center_y%-40"/>
+ 		<variable name="warn_center2_y" value="%center_y%+40"/>
+ 		
+ 		<!-- button list height -->
+-		<variable name="bl_h1" value="144"/>
+-		<variable name="bl_h2" value="288"/>
+-		<variable name="bl_h3" value="432"/>
+-		<variable name="bl_h4" value="576"/>
+-		<variable name="bl_h5" value="720"/>
+-		<variable name="bl_h6" value="864"/>
+-		
+-		<variable name="bl_fullscreen_h" value="%screen_min_cut%-384"/>
+-		<variable name="bl_files_h" value="%screen_min_cut%-600"/>
+-		<variable name="input_btn_list_y" value="674+%cutout_w%"/>
++		<variable name="bl_h1" value="64"/>
++		<variable name="bl_h2" value="128"/>
++		<variable name="bl_h3" value="192"/>
++		<variable name="bl_h4" value="256"/>
++		<variable name="bl_h5" value="320"/>
++		<variable name="bl_h6" value="384"/>
++		
++		<variable name="bl_fullscreen_h" value="%screen_min_cut%-280"/>
++		<variable name="bl_files_h" value="%screen_min_cut%-280"/>
++		<variable name="input_btn_list_y" value="250"/>
+ 
+-		<variable name="down_menu_btn_y" value="%screen_h%-576"/>
+-		<variable name="down_menu_btn2_y" value="%screen_h%-432"/>
+-		<variable name="down_menu_btn2_caption_y" value="%screen_h%-448"/>
+-		<variable name="down_menu_y" value="%screen_h%-998"/>
+-		<variable name="down_menu_y_pre" value="%screen_h%-1050"/>
++		<!-- Down Menu -->
++		<variable name="down_menu_btn_y" value="%screen_h%-380"/>
++		<variable name="down_menu_btn2_y" value="%screen_h%-280"/>
++		<variable name="down_menu_btn2_caption_y" value="%screen_h%-300"/>
++		<variable name="down_menu_y" value="%screen_h%-650"/>
++		<variable name="down_menu_y_pre" value="%screen_h%-700"/>
+ 
+ 		<!-- chmod -->
+ 		<variable name="ch_r_x" value="315"/>
+ 		<variable name="ch_w_x" value="513"/>
+ 		<variable name="ch_x_x" value="711"/>
+-		<variable name="ch_own_y" value="%cutout_w%+771"/>
+-		<variable name="ch_grp_y" value="%cutout_w%+881"/>
+-		<variable name="ch_oth_y" value="%cutout_w%+991"/>
+-		<variable name="ch_sph_y" value="%cutout_w%+1209"/>
++		<variable name="ch_own_y" value="300"/>
++		<variable name="ch_grp_y" value="380"/>
++		<variable name="ch_oth_y" value="460"/>
++		<variable name="ch_sph_y" value="580"/>
+ 		<variable name="txt_r_x" value="259"/>
+ 		<variable name="txt_w_x" value="457"/>
+ 		<variable name="txt_x_x" value="655"/>
+ 
+-		<variable name="chtxt_own_y" value="%cutout_w%+766"/>
+-		<variable name="chtxt_grp_y" value="%cutout_w%+876"/>
+-		<variable name="chtxt_oth_y" value="%cutout_w%+986"/>
++		<variable name="chtxt_own_y" value="295"/>
++		<variable name="chtxt_grp_y" value="375"/>
++		<variable name="chtxt_oth_y" value="455"/>
+ 
+ 		<variable name="chtxt_r_x" value="332"/>
+ 		<variable name="chtxt_w_x" value="540"/>
+ 		<variable name="chtxt_x_x" value="738"/>
+-		<variable name="chtxt_y" value="%cutout_w%+697"/>
+-		<variable name="chtxt_sph_y" value="%cutout_w%+1135"/>
+-		<!-- row6_1_y -->
++		<variable name="chtxt_y" value="250"/>
++		<variable name="chtxt_sph_y" value="540"/>
+ 
+ 		<!-- About -->
+-		<variable name="about_title_h" value="576+%cutout_w%"/>
+-		<variable name="tab_title_h" value="360+%cutout_w%"/>
+-		<variable name="tab_btn_y" value="240+%cutout_w%"/>
+-		<variable name="credits_listbox_h" value="%screen_min_cut%-552"/>
+-		<variable name="about_logo_y" value="280+%cutout_w%"/>
++		<variable name="about_title_h" value="260"/>
++		<variable name="tab_title_h" value="125"/>
++		<variable name="tab_btn_y" value="55"/>
++		<variable name="credits_listbox_h" value="%screen_min_cut%-300"/>
++		<variable name="about_logo_y" value="130"/>
+ 		<variable name="about_logo_x" value="96"/>
+ 		<variable name="about_txt_x" value="370"/>
+-		<variable name="about_txt2_y" value="370+%cutout_w%"/>
+-		<variable name="about_txt3_y" value="420+%cutout_w%"/>
+-		<variable name="about_txt4_y" value="470+%cutout_w%"/>
+-		
+-		<variable name="cardtxt_1" value="718+%cutout_w%"/>
+-		<variable name="cardtxt_2" value="778+%cutout_w%"/>
+-		<variable name="cardtxt_3" value="1006+%cutout_w%"/>
+-		<variable name="cardtxt_4" value="1066+%cutout_w%"/>
+-		<variable name="cardtxt_5" value="1294+%cutout_w%"/>
+-		<variable name="cardtxt_6" value="1354+%cutout_w%"/>
+-		<variable name="cardtxt_7" value="1582+%cutout_w%"/>
+-		<variable name="cardtxt_8" value="1642+%cutout_w%"/>
+-		
+-		<variable name="card1_y" value="576+%cutout_w%"/>
+-		<variable name="card2_y" value="864+%cutout_w%"/>
+-		<variable name="card3_y" value="1152+%cutout_w%"/>
+-		<variable name="card4_y" value="1440+%cutout_w%"/>
+-		<variable name="card4_btn_y" value="1604+%cutout_w%"/>
++		<variable name="about_txt2_y" value="180"/>
++		<variable name="about_txt3_y" value="215"/>
++		<variable name="about_txt4_y" value="250"/>
++		
++		<variable name="cardtxt_1" value="340"/>
++		<variable name="cardtxt_2" value="375"/>
++		<variable name="cardtxt_3" value="490"/>
++		<variable name="cardtxt_4" value="525"/>
++		<variable name="cardtxt_5" value="640"/>
++		<variable name="cardtxt_6" value="675"/>
++		<variable name="cardtxt_7" value="790"/>
++		<variable name="cardtxt_8" value="825"/>
++		
++		<variable name="card1_y" value="280"/>
++		<variable name="card2_y" value="430"/>
++		<variable name="card3_y" value="580"/>
++		<variable name="card4_y" value="730"/>
++		<variable name="card4_btn_y" value="860"/>
+ 		
+ 		<variable name="card1_mtag_x" value="744"/>
+ 		<variable name="card1_ctag_x" value="748"/>
+-		<variable name="card1_mtag_y" value="636+%cutout_w%"/>
+-		<variable name="card2_mtag_y" value="924+%cutout_w%"/>
+-		<variable name="card3_mtag_y" value="1212+%cutout_w%"/>
+-		<variable name="card4_mtag_y" value="1500+%cutout_w%"/>
+-		<variable name="card1_ctag_y" value="640+%cutout_w%"/>
+-		<variable name="card2_ctag_y" value="928+%cutout_w%"/>
+-		<variable name="card3_ctag_y" value="1216+%cutout_w%"/>
+-		<variable name="card4_ctag_y" value="1504+%cutout_w%"/>
++		<variable name="card1_mtag_y" value="315"/>
++		<variable name="card2_mtag_y" value="465"/>
++		<variable name="card3_mtag_y" value="615"/>
++		<variable name="card4_mtag_y" value="765"/>
++		<variable name="card1_ctag_y" value="319"/>
++		<variable name="card2_ctag_y" value="469"/>
++		<variable name="card3_ctag_y" value="619"/>
++		<variable name="card4_ctag_y" value="769"/>
+ 
+-		<variable name="card_img1_y" value="648+%cutout_w%"/>
+-		<variable name="card_img2_y" value="936+%cutout_w%"/>
+-		<variable name="card_img3_y" value="1224+%cutout_w%"/>
+-		<variable name="card_img4_y" value="1512+%cutout_w%"/>
++		<variable name="card_img1_y" value="325"/>
++		<variable name="card_img2_y" value="475"/>
++		<variable name="card_img3_y" value="625"/>
++		<variable name="card_img4_y" value="775"/>
+ 		
+ 		<variable name="card_txt_x" value="300"/>
+ 		<variable name="card_img_x" value="72"/>
+ 		
+-		<variable name="btn_float_center_y" value="%screen_h%-294"/>
++		<variable name="btn_float_center_y" value="%screen_h%-150"/>
+ 		
+ 		<!-- NavBar -->
+ 		<variable name="row_nav_text_y" value="%row_nav_y%+%bs_text_offset%"/>
+-		<variable name="row_nav_y" value="%screen_h%-144"/>
++		<variable name="row_nav_y" value="%screen_h%-100"/>
+ 		<variable name="row_navbtn_w" value="318"/>
+-		<variable name="row_navbtn_y" value="%screen_h%-72"/>
++		<variable name="row_navbtn_y" value="%screen_h%-50"/>
+ 		<variable name="back_button_x" value="237"/>
+-		<variable name="slideout_button_x" value="843"/>
+-		<variable name="nav_h" value="144"/>
++		<variable name="slideout_button_x" value="2163"/>
++		<variable name="nav_h" value="100"/>
+ 		
+ 		<!-- Status Bar -->
+-		<variable name="status_right_x" value="1060-%status_indent_right%"/>
++		<variable name="status_right_x" value="%screen_w%-20-%status_indent_right%"/>
+ 		
+ 		<!-- Big invisible button -->
+-		<variable name="mb_h_hide" value="120"/>
++		<variable name="mb_h_hide" value="70"/>
+ 		
+ 		<!-- Listbox height -->
+-		<variable name="lb_l1" value="90"/>
+-		<variable name="lb_l2" value="180"/>
+-		<variable name="lb_l3" value="270"/>
+-		<variable name="lb_l3_dynamic" value="%screen_min_cut%-1650"/>
+-		<variable name="lb_l4" value="360"/>
+-		<variable name="lb_l5" value="450"/>
+-		<variable name="lb_l6" value="540"/>
+-		<variable name="lb_l7" value="630"/>
+-		<variable name="lb_l8" value="720"/>
+-		<variable name="lb_l9" value="810"/>
+-		<variable name="lb_l10" value="900"/>
+-		<variable name="lb_l11" value="990"/>
+-		<variable name="lb_l12" value="1080"/>
+-		<variable name="lb_l13" value="1170"/>
+-		<variable name="lb_l14" value="1260"/>
+-		<variable name="lb_l15" value="1350"/>
++		<variable name="lb_l1" value="68"/>
++		<variable name="lb_l2" value="136"/>
++		<variable name="lb_l3" value="204"/>
++		<variable name="lb_l3_dynamic" value="%screen_min_cut%-350"/>
++		<variable name="lb_l4" value="272"/>
++		<variable name="lb_l5" value="340"/>
++		<variable name="lb_l6" value="408"/>
++		<variable name="lb_l7" value="476"/>
++		<variable name="lb_l8" value="544"/>
++		<variable name="lb_l9" value="612"/>
++		<variable name="lb_l10" value="680"/>
++		<variable name="lb_l11" value="748"/>
++		<variable name="lb_l12" value="816"/>
++		<variable name="lb_l13" value="884"/>
++		<variable name="lb_l14" value="952"/>
++		<variable name="lb_l15" value="1020"/>
++
++		<variable name="lb_group_l1" value="64"/>
++		<variable name="lb_group_l2" value="120"/>
++		<variable name="lb_group_l3" value="176"/>
++		<variable name="lb_group_l4" value="232"/>
++		<variable name="lb_group_l5" value="288"/>
++		<variable name="lb_group_l6" value="344"/>
++		<variable name="lb_group_l7" value="400"/>
++		<variable name="lb_group_l8" value="456"/>
++		<variable name="lb_group_l9" value="512"/>
++		<variable name="lb_group_l10" value="568"/>
+ 
+-		<variable name="lb_group_l1" value="170"/>
+-		<variable name="lb_group_l2" value="260"/>
+-		<variable name="lb_group_l3" value="350"/>
+-		<variable name="lb_group_l4" value="440"/>
+-		<variable name="lb_group_l5" value="530"/>
+-		<variable name="lb_group_l6" value="620"/>
+-		<variable name="lb_group_l7" value="710"/>
+-		<variable name="lb_group_l8" value="800"/>
+-		<variable name="lb_group_l9" value="890"/>
+-		<variable name="lb_group_l10" value="980"/>
++				<!-- Status Bar -->
++		<variable name="status_info_y" value="8"/>
++		<variable name="status_indent_left" value="60"/>
++		<variable name="status_indent_right" value="60"/>
+ 
+ 		<!-- Battery -->
+-		<variable name="battery_12_x" value="880-%status_indent_right%"/>
+-		<variable name="battery_24_x" value="940-%status_indent_right%"/>
+-		<variable name="battery_2_12_x" value="900-%status_indent_right%"/>
+-		<variable name="battery_2_24_x" value="960-%status_indent_right%"/>
++		<variable name="battery_12_x" value="%screen_w%-200-%status_indent_right%"/>
++		<variable name="battery_24_x" value="%screen_w%-140-%status_indent_right%"/>
++		<variable name="battery_2_12_x" value="%screen_w%-180-%status_indent_right%"/>
++		<variable name="battery_2_24_x" value="%screen_w%-120-%status_indent_right%"/>
+ 
+-		<variable name="battery_y" value="%status_info_y%+6"/>
++		<variable name="battery_y" value="%status_info_y%+2"/>
+ 		<variable name="battery_2_y" value="%status_info_y%+10"/>
+ 		<variable name="battery_circle_y" value="%status_info_y%+4"/>
+ 
+ 		<!-- File list -->
+ 		<variable name="fileselector_width" value="%screen_w%"/>
+-		<variable name="fileselector_terminal_height" value="%screen_min_cut%-600"/>
++		<variable name="fileselector_terminal_height" value="%screen_min_cut%-300"/>
+ 		<variable name="fileselector_separatorheight" value="2"/>
+ 		<variable name="fileselector_spacing" value="0"/>
+ 		
+ 		<!-- Title / Title buttons -->
+-		<variable name="search_files_h" value="%screen_min_cut%-722"/>
+-		<variable name="search_files_y" value="360+%cutout_w%"/>
+-		<variable name="search_bar_y" value="72+%cutout_w%"/>
+-		<variable name="search_bar_bg_y" value="96+%cutout_w%"/>
+-		<variable name="search_bar_line_y" value="238+%cutout_w%"/>
+-		<variable name="path_text_y" value="268+%cutout_w%"/>
+-		<variable name="path_y" value="240+%cutout_w%"/>
+-		<variable name="path_arrow_y" value="300+%cutout_w%"/>
+-		<variable name="ab_search_y" value="168+%cutout_w%"/>
+-		<variable name="ab_search_text_y" value="138+%cutout_w%"/>
++		<variable name="search_files_h" value="%screen_min_cut%-300"/>
++		<variable name="search_files_y" value="175"/>
++		<variable name="search_bar_y" value="48"/>
++		<variable name="search_bar_bg_y" value="52"/>
++		<variable name="search_bar_line_y" value="132"/>
++		<variable name="search_bar_w" value="%screen_w%-96"/>
++		<variable name="path_text_y" value="142"/>
++		<variable name="path_y" value="136"/>
++		<variable name="path_arrow_y" value="148"/>
++		<variable name="ab_search_y" value="78"/>
++		<variable name="ab_search_text_y" value="74"/>
++		<variable name="fm_sort_x" value="%screen_w%-264"/>
++		<variable name="fm_menu_x" value="%screen_w%-126"/>
+ 
+-		<variable name="ab_bc_double_u_y" value="90+%cutout_w%"/>
+-		<variable name="ab_bc_double_d_y" value="158+%cutout_w%"/>
+-		<variable name="ab0_y" value="84+%cutout_w%"/>
+-		<variable name="ab_y" value="156+%cutout_w%"/>
+-		<variable name="ab2_y" value="324+%cutout_w%"/>
+-		<variable name="ab3_y" value="540+%cutout_w%"/>
+-		<variable name="ab_btn1_x" value="996"/>
+-		<variable name="ab_btn2_x" value="852"/>
+-		<variable name="ab_btn3_x" value="708"/>
+-		<variable name="ab_btn01_x" value="468"/>
+-		<variable name="ab_btn02_x" value="612"/>
++		<variable name="ab_bc_double_u_y" value="54"/>
++		<variable name="ab_bc_double_d_y" value="98"/>
++		<variable name="ab0_y" value="38"/>
++		<variable name="ab_y" value="92"/>
++		<variable name="ab2_y" value="160"/>
++		<variable name="ab3_y" value="270"/>
++		<variable name="ab_btn1_x" value="%screen_w%-84"/>
++		<variable name="ab_btn2_x" value="%screen_w%-228"/>
++		<variable name="ab_btn3_x" value="%screen_w%-372"/>
++		<variable name="ab_btn01_x" value="%screen_w%-612"/>
++		<variable name="ab_btn02_x" value="%screen_w%-468"/>
+ 		
+ 		<variable name="ab_back_x" value="84"/>
+-		<variable name="ab_bc_y" value="115+%cutout_w%"/>
+-		<variable name="ab_bc_fox_y" value="115+%cutout_w%"/>
+-		<variable name="ab_bc_search_y" value="128+%cutout_w%"/>
+-		<variable name="ab_bc2_y" value="282+%cutout_w%"/>
+-		<variable name="ab_bc3_y" value="500+%cutout_w%"/>
+-		<variable name="ab_h" value="240+%cutout_w%"/>
+-		<variable name="ab_ex_h" value="456+%cutout_w%"/>
+-		<variable name="row_ab_ex_y" value="456+%cutout_w%"/>
+-		<variable name="ab_btn_h" value="168"/>
++		<variable name="ab_bc_y" value="68"/>
++		<variable name="ab_bc_fox_y" value="54"/>
++		<variable name="ab_bc_search_y" value="56"/>
++		<variable name="ab_bc2_y" value="140"/>
++		<variable name="ab_bc3_y" value="240"/>
++		<variable name="ab_h" value="125"/>
++		<variable name="ab_ex_h" value="150"/>
++		<variable name="row_ab_ex_y" value="150"/>
++		<variable name="ab_btn_h" value="85"/>
+ 		
+ 		<variable name="tab_w" value="312"/>
+ 		<variable name="tab_h" value="8"/>
+ 
+-		<variable name="main_switch_icon_x" value="946"/>
++		<variable name="main_switch_w" value="%screen_w%-80"/>
++		<variable name="main_switch_icon_x" value="%screen_w%-134"/>
+ 
+ 		<!-- Advanced -->
+-		<variable name="adv_additions_h" value="%screen_w%-200"/>
++		<variable name="adv_additions_h" value="%screen_h%-200"/>
+ 
+ 		<!-- Sort menu -->
+-		<variable name="ab_menu_y" value="72+%cutout_w%"/>
+-		<variable name="ab_menu_x" value="972"/>
+-		<variable name="ab_menu_sort_x" value="588"/>
++		<variable name="ab_menu_y" value="25"/>
++		<variable name="ab_menu_x" value="%screen_w%-108"/>
++		<variable name="ab_menu_sort_x" value="%screen_w%-492"/>
+ 		<variable name="ab_menu_sort_btn_w" value="468"/>
+-		<variable name="ab_menu_sort_btn_h" value="144"/>
+-		<variable name="ab_menu_sort_text_x" value="638"/>
+-		<variable name="ab_menu_text_offset" value="32"/>
+-		<variable name="ab_menu_btn_1_y" value="121+%cutout_w%"/>
+-		<variable name="ab_menu_btn_2_y" value="265+%cutout_w%"/>
+-		<variable name="ab_menu_btn_3_y" value="409+%cutout_w%"/>
+-		<variable name="ab_menu_btn_4_y" value="603+%cutout_w%"/>
+-		<variable name="ab_menu_btn_5_y" value="747+%cutout_w%"/>
+-		<variable name="ab_menu_btn_6_y" value="891+%cutout_w%"/>
+-		<variable name="ab_menu_inst_1_y" value="193+%cutout_w%"/>
+-		<variable name="ab_menu_inst_2_y" value="337+%cutout_w%"/>
+-		<variable name="ab_menu_inst_3_y" value="481+%cutout_w%"/>
+-		<variable name="ab_menu_inst_4_y" value="675+%cutout_w%"/>
+-		<variable name="ab_menu_inst_5_y" value="819+%cutout_w%"/>
+-		<variable name="ab_menu_inst_6_y" value="963+%cutout_w%"/>
++		<variable name="ab_menu_sort_btn_h" value="85"/>
++		<variable name="ab_menu_sort_text_x" value="%screen_w%-442"/>
++		<variable name="ab_menu_text_offset" value="18"/>
++		<variable name="ab_menu_btn_1_y" value="55"/>
++		<variable name="ab_menu_btn_2_y" value="140"/>
++		<variable name="ab_menu_btn_3_y" value="225"/>
++		<variable name="ab_menu_btn_4_y" value="335"/>
++		<variable name="ab_menu_btn_5_y" value="420"/>
++		<variable name="ab_menu_btn_6_y" value="505"/>
++		<variable name="ab_menu_inst_1_y" value="90"/>
++		<variable name="ab_menu_inst_2_y" value="175"/>
++		<variable name="ab_menu_inst_3_y" value="260"/>
++		<variable name="ab_menu_inst_4_y" value="370"/>
++		<variable name="ab_menu_inst_5_y" value="455"/>
++		<variable name="ab_menu_inst_6_y" value="540"/>
+ 		<variable name="ab_menu_inst_1_text_y" value="%ab_menu_inst_1_y%-%ab_menu_text_offset%"/>
+ 		<variable name="ab_menu_inst_2_text_y" value="%ab_menu_inst_2_y%-%ab_menu_text_offset%"/>
+ 		<variable name="ab_menu_inst_3_text_y" value="%ab_menu_inst_3_y%-%ab_menu_text_offset%"/>
+@@ -467,85 +474,85 @@
+ 		<variable name="ab_menu_inst_6_text_y" value="%ab_menu_inst_6_y%-%ab_menu_text_offset%"/>
+ 		
+ 		<!-- Bottom Warning -->
+-		<variable name="row_warn_y" value="%screen_h%-380"/>
+-		<variable name="row_warn2_y" value="%screen_h%-300"/>
++		<variable name="row_warn_y" value="%screen_h%-250"/>
++		<variable name="row_warn2_y" value="%screen_h%-200"/>
+ 
+ 		<!-- Bottom buttons -->
+-		<variable name="row_btn_bottom_y" value="%screen_h%-156"/>
+-		<variable name="row_btn_y" value="%screen_h%-450"/>
+-		<variable name="row_btn1_y" value="%screen_h%-300"/>
+-		<variable name="row_btn2_y" value="%screen_h%-579"/>
+-		<variable name="row_btn3_y" value="%screen_h%-729"/>
++		<variable name="row_btn_bottom_y" value="%screen_h%-100"/>
++		<variable name="row_btn_y" value="%screen_h%-190"/>
++		<variable name="row_btn1_y" value="%screen_h%-105"/>
++		<variable name="row_btn2_y" value="705"/>
++		<variable name="row_btn3_y" value="%screen_h%-285"/>
+ 		<variable name="btn_raised_left_x" value="48"/>
+-		<variable name="btn_raised_right_x" value="1032"/>
++		<variable name="btn_raised_right_x" value="%screen_w%-48"/>
+ 		<variable name="btn_w" value="471"/>
+ 		<variable name="btn_half_w" value="207"/>
+-		<variable name="btn_h" value="108"/>
++		<variable name="btn_h" value="76"/>
+ 		
+ 		<!-- Progress -->
+ 		<variable name="progressbar_x" value="0"/>
+-		<variable name="progressbar_y" value="456+%cutout_w%"/>
++		<variable name="progressbar_y" value="150"/>
+ 		
+ 		<!-- Keyboard -->
+-		<variable name="keyboard_y" value="%screen_h%-788"/>
+-		<variable name="keyboard_terminal_y" value="%screen_h%-884"/>
+-		<variable name="keyboard_num_y" value="%screen_h%-900"/>
+-		<variable name="keyboard_term_num_y" value="%screen_h%-992"/>
++		<variable name="keyboard_y" value="%screen_h%-480"/>
++		<variable name="keyboard_terminal_y" value="%screen_h%-550"/>
++		<variable name="keyboard_num_y" value="%screen_h%-560"/>
++		<variable name="keyboard_term_num_y" value="%screen_h%-620"/>
+ 		
+ 		<!-- Input fields -->
+ 		<variable name="input_encr_width" value="696"/>
+-		<variable name="input_height" value="60"/>
++		<variable name="input_height" value="48"/>
+ 		<variable name="input_line_height" value="3"/>
+ 		<variable name="input_cursor_width" value="2"/>
+ 		
+ 		<!-- Terminal / Console -->
+-		<variable name="console_width" value="984"/>
+-		<variable name="console_height" value="%screen_min_cut%-475"/>
+-		<variable name="console_action_height" value="%screen_min_cut%-852"/>
+-		<variable name="console_fastboot_height" value="%screen_min_cut%-492"/>
+-		<variable name="prep" value="%screen_original_h%-%cutout_w%"/>
+-		<variable name="console_action_height_big" value="%prep%-552"/>
+-		<variable name="console_action_height_fm" value="%screen_min_cut%-696"/>
+-		<variable name="console_y" value="504+%cutout_w%"/>
+-		<variable name="console_ab_y" value="288+%cutout_w%"/>
+-		<variable name="terminal_y" value="90+%cutout_w%"/>
+-		<variable name="terminal_width" value="1032"/>
+-		<variable name="terminal_height" value="%screen_min_cut%-1020"/>
+-		<variable name="terminal_num_height" value="%screen_min_cut%-1132"/>
+-		<variable name="terminal_nokb_height" value="%screen_min_cut%-270"/>
+-		<variable name="console_brightness_y" value="%screen_h%-325"/>
+-		<variable name="console_flash_y" value="%screen_h%-228"/>
++		<variable name="console_width" value="%screen_w%-96"/>
++		<variable name="console_height" value="%screen_min_cut%-200"/>
++		<variable name="console_action_height" value="%screen_min_cut%-360"/>
++		<variable name="console_fastboot_height" value="%screen_min_cut%-280"/>
++		<variable name="prep" value="%screen_original_h%"/>
++		<variable name="console_action_height_big" value="%prep%-240"/>
++		<variable name="console_action_height_fm" value="%screen_min_cut%-280"/>
++		<variable name="console_y" value="180"/>
++		<variable name="console_ab_y" value="130"/>
++		<variable name="terminal_y" value="55"/>
++		<variable name="terminal_width" value="%screen_w%-48"/>
++		<variable name="terminal_height" value="%screen_min_cut%-480"/>
++		<variable name="terminal_num_height" value="%screen_min_cut%-540"/>
++		<variable name="terminal_nokb_height" value="%screen_min_cut%-140"/>
++		<variable name="console_brightness_y" value="%screen_h%-190"/>
++		<variable name="console_flash_y" value="%screen_h%-140"/>
+ 		
+ 		<!-- Dialogs -->
+ 		<variable name="dialog_w" value="840"/>
+-		<variable name="db_left_x" value="380"/>
+-		<variable name="db_right_x" value="644"/>
+-		<variable name="db_y" value="1129"/>
+-		<variable name="db_encrypt_y" value="839"/>
+-		<variable name="db_text1_y" value="832"/>
+-		<variable name="db_text2_y" value="892"/>
+-		<variable name="db_text2a_y" value="922"/>
+-		<variable name="db_text3_y" value="952"/>
+-		<variable name="db_text4_y" value="1012"/>
+-		<variable name="db_text3a_y" value="982"/>
+-		<variable name="db_checkbox_y" value="1012"/>
++		<variable name="db_left_x" value="1100"/>
++		<variable name="db_right_x" value="1380"/>
++		<variable name="db_y" value="660"/>
++		<variable name="db_encrypt_y" value="460"/>
++		<variable name="db_text1_y" value="400"/>
++		<variable name="db_text2_y" value="440"/>
++		<variable name="db_text2a_y" value="460"/>
++		<variable name="db_text3_y" value="480"/>
++		<variable name="db_text4_y" value="520"/>
++		<variable name="db_text3a_y" value="500"/>
++		<variable name="db_checkbox_y" value="540"/>
+ 		<variable name="storage_width" value="764"/>
+ 		<variable name="storage_height" value="274"/>
+ 		<variable name="storage_indent_x" value="120"/>
+-		<variable name="storage_indent_y" value="832"/>
+-		<variable name="bg_storage_x" value="36"/>
+-		<variable name="bg_storage_y" value="592"/>
+-		<variable name="bg_storage_hdr_x" value="192"/>
+-		<variable name="bg_storage_hdr_y" value="706"/>
+-		<variable name="bg_encrypt_y" value="302"/>
+-		<variable name="bg_encrypt_hdr_y" value="416"/>
++		<variable name="storage_indent_y" value="400"/>
++		<variable name="bg_storage_x" value="780"/>
++		<variable name="bg_storage_y" value="280"/>
++		<variable name="bg_storage_hdr_x" value="840"/>
++		<variable name="bg_storage_hdr_y" value="330"/>
++		<variable name="bg_encrypt_y" value="180"/>
++		<variable name="bg_encrypt_hdr_y" value="240"/>
+ 		<variable name="snackbar_text_x" value="72"/>
+-		<variable name="snackbar_text_y" value="%screen_h%-268"/>
+-		<variable name="snackbar_button_x" value="776"/>
+-		<variable name="snackbar_button_2_x" value="512"/>
+-		<variable name="snackbar_button_y" value="%screen_h%-294"/>
+-		<variable name="dlg_input_cap" value="570"/>
+-		<variable name="dlg_input_line" value="690"/>
++		<variable name="snackbar_text_y" value="%screen_h%-160"/>
++		<variable name="snackbar_button_x" value="%screen_w%-200"/>
++		<variable name="snackbar_button_2_x" value="%screen_w%-400"/>
++		<variable name="snackbar_button_y" value="%screen_h%-180"/>
++		<variable name="dlg_input_cap" value="330"/>
++		<variable name="dlg_input_line" value="390"/>
+ 		
+ 		<!-- Fast scroll -->
+ 		<variable name="fastscroll_w" value="16"/>
+@@ -555,14 +562,14 @@
+ 		
+ 		<!-- Sliders -->
+ 		<variable name="slider_x" value="88"/>
+-		<variable name="slider_y" value="%screen_h%-320"/>
+-		<variable name="slider_text_y" value="%screen_h%-425"/>
+-		<variable name="slidervalue_w" value="984"/>
++		<variable name="slider_y" value="%screen_h%-145"/>
++		<variable name="slider_text_y" value="%screen_h%-185"/>
++		<variable name="slidervalue_w" value="%screen_w%-176"/>
+ 		<variable name="slidervalue_lineh" value="6"/>
+ 		<variable name="slidervalue_padding" value="0"/>
+-		<variable name="slidervalue_sliderw" value="96"/>
+-		<variable name="slidervalue_sliderh" value="96"/>
+-		<variable name="slider_y_l" value="%screen_original_h%-176"/>
++		<variable name="slidervalue_sliderw" value="68"/>
++		<variable name="slidervalue_sliderh" value="68"/>
++		<variable name="slider_y_l" value="%screen_original_h%-115"/>
+ 
+ 		<variable name="unlock_gest_y" value="%screen_original_h%-48"/>
+ 		
+@@ -582,70 +589,71 @@
+ 		<variable name="highlight" value="%accent%"/>
+ 		
+ 		<!-- Centered title with icon (for decryption and setup wizard) -->
+-		<variable name="centered_title_1" value="222+%cutout_w%"/>
+-		<variable name="centered_title_2" value="312+%cutout_w%"/>
++		<variable name="centered_title_1" value="130"/>
++		<variable name="centered_title_2" value="190"/>
+ 		
+ 		<!-- Gesture -->
+ 		<variable name="gst_keyboard_y" value="%keyboard_y%-%ab_h%"/>
+-		<variable name="gst_line_y" value="%screen_h%-123"/>
++		<variable name="gst_line_y" value="%screen_h%-75"/>
+ 		
+ 		<!-- Rows -->
+-		<variable name="row0_y" value="240+%cutout_w%"/>
+-		<variable name="row0_a_y" value="270+%cutout_w%"/>
+-		<variable name="row1_1_y" value="300+%cutout_w%"/>
+-		<variable name="row1_1a_y" value="330+%cutout_w%"/>
+-		<variable name="row1_2_y" value="360+%cutout_w%"/>
+-		<variable name="row1_2a_y" value="390+%cutout_w%"/>
+-		<variable name="row1_3_y" value="420+%cutout_w%"/>
+-		<variable name="row1_3a_y" value="450+%cutout_w%"/>
+-		<variable name="row2_1_y" value="480+%cutout_w%"/>
+-		<variable name="row2_1a_y" value="510+%cutout_w%"/>
+-		<variable name="row2_2_y" value="540+%cutout_w%"/>
+-		<variable name="row2_2a_y" value="570+%cutout_w%"/>
+-		<variable name="row2_3_y" value="600+%cutout_w%"/>
+-		<variable name="row2_3a_y" value="630+%cutout_w%"/>
+-		<variable name="row3_1_y" value="660+%cutout_w%"/>
+-		<variable name="row3_1a_y" value="690+%cutout_w%"/>
+-		<variable name="row3_2_y" value="720+%cutout_w%"/>
+-		<variable name="row3_2a_y" value="750+%cutout_w%"/>
+-		<variable name="row3_3_y" value="780+%cutout_w%"/>
+-		<variable name="row3_3a_y" value="810+%cutout_w%"/>
+-		<variable name="row4_1_y" value="840+%cutout_w%"/>
+-		<variable name="row4_1a_y" value="870+%cutout_w%"/>
+-		<variable name="row4_2_y" value="900+%cutout_w%"/>
+-		<variable name="row4_2a_y" value="930+%cutout_w%"/>
+-		<variable name="row4_3_y" value="960+%cutout_w%"/>
+-		<variable name="row4_3a_y" value="990+%cutout_w%"/>
+-		<variable name="row5_1_y" value="1020+%cutout_w%"/>
+-		<variable name="row5_1a_y" value="1050+%cutout_w%"/>
+-		<variable name="row5_2_y" value="1080+%cutout_w%"/>
+-		<variable name="row5_2a_y" value="1110+%cutout_w%"/>
+-		<variable name="row5_3_y" value="1140+%cutout_w%"/>
+-		<variable name="row5_3a_y" value="1170+%cutout_w%"/>
+-		<variable name="row6_1_y" value="1200+%cutout_w%"/>
+-		<variable name="row6_1a_y" value="1230+%cutout_w%"/>
+-		<variable name="row6_2_y" value="1260+%cutout_w%"/>
+-		<variable name="row6_2a_y" value="1290+%cutout_w%"/>
+-		<variable name="row6_3_y" value="1320+%cutout_w%"/>
+-		<variable name="row6_3a_y" value="1350+%cutout_w%"/>
+-		<variable name="row7_1_y" value="1380+%cutout_w%"/>
+-		<variable name="row7_1a_y" value="1410+%cutout_w%"/>
+-		<variable name="row7_2_y" value="1440+%cutout_w%"/>
+-		<variable name="row7_2a_y" value="1470+%cutout_w%"/>
+-		<variable name="row7_3_y" value="1500+%cutout_w%"/>
+-		<variable name="row7_3a_y" value="1530+%cutout_w%"/>
+-		<variable name="row8_1_y" value="1560+%cutout_w%"/>
+-		<variable name="row8_1a_y" value="1590+%cutout_w%"/>
+-		<variable name="row8_2_y" value="1620+%cutout_w%"/>
+-		<variable name="row8_2a_y" value="1650+%cutout_w%"/>
+-		<variable name="row8_3_y" value="1680+%cutout_w%"/>
+-		<variable name="row8_3a_y" value="1710+%cutout_w%"/>
+-		<variable name="row9_1_y" value="1740+%cutout_w%"/>
++		<variable name="row0_y" value="115"/>
++		<variable name="row0_a_y" value="130"/>
++		<variable name="row1_1_y" value="145"/>
++		<variable name="row1_1a_y" value="160"/>
++		<variable name="row1_2_y" value="175"/>
++		<variable name="row1_2a_y" value="190"/>
++		<variable name="row1_3_y" value="205"/>
++		<variable name="row1_3a_y" value="220"/>
++		<variable name="row2_1_y" value="235"/>
++		<variable name="row2_1a_y" value="250"/>
++		<variable name="row2_2_y" value="265"/>
++		<variable name="row2_2a_y" value="280"/>
++		<variable name="row2_3_y" value="295"/>
++		<variable name="row2_3a_y" value="310"/>
++		<variable name="row3_1_y" value="325"/>
++		<variable name="row3_1a_y" value="340"/>
++		<variable name="row3_2_y" value="355"/>
++		<variable name="row3_2a_y" value="370"/>
++		<variable name="row3_3_y" value="385"/>
++		<variable name="row3_3a_y" value="400"/>
++		<variable name="row4_1_y" value="420"/>
++		<variable name="row4_1a_y" value="440"/>
++		<variable name="row4_2_y" value="460"/>
++		<variable name="row4_2a_y" value="480"/>
++		<variable name="row4_3_y" value="500"/>
++		<variable name="row4_3a_y" value="520"/>
++		<variable name="row5_1_y" value="540"/>
++		<variable name="row5_1a_y" value="560"/>
++		<variable name="row5_2_y" value="580"/>
++		<variable name="row5_2a_y" value="600"/>
++		<variable name="row5_3_y" value="620"/>
++		<variable name="row5_3a_y" value="640"/>
++		<variable name="row6_1_y" value="660"/>
++		<variable name="row6_1a_y" value="680"/>
++		<variable name="row6_2_y" value="700"/>
++		<variable name="row6_2a_y" value="720"/>
++		<variable name="row6_3_y" value="740"/>
++		<variable name="row6_3a_y" value="760"/>
++		<variable name="row7_1_y" value="780"/>
++		<variable name="row7_1a_y" value="800"/>
++		<variable name="row7_2_y" value="820"/>
++		<variable name="row7_2a_y" value="840"/>
++		<variable name="row7_3_y" value="860"/>
++		<variable name="row7_3a_y" value="880"/>
++		<variable name="row8_1_y" value="900"/>
++		<variable name="row8_1a_y" value="920"/>
++		<variable name="row8_2_y" value="940"/>
++		<variable name="row8_2a_y" value="960"/>
++		<variable name="row8_3_y" value="980"/>
++		<variable name="row8_3a_y" value="1000"/>
++		<variable name="row9_1_y" value="1020"/>
+ 		
+ 		<!-- Group list -->
+ 		<variable name="gl_text_x" value="60"/>
+ 
+ 		<!-- New top switcher text -->
+ 		<variable name="switch_text_x" value="110"/>
++			<variable name="options_list_num_group" value="200"/>
+ 	</variables>
+ </recovery>
+diff --git a/gui/theme/portrait_hdpi/splash.xml b/gui/theme/portrait_hdpi/splash.xml
+index 788d80a3..76b06eb5 100644
+--- a/gui/theme/portrait_hdpi/splash.xml
++++ b/gui/theme/portrait_hdpi/splash.xml
+@@ -5,7 +5,7 @@
+ -->
+ <recovery>
+ 	<details>
+-		<resolution width="1080" h="1920"/>
++		<resolution width="2400" h="1080"/>
+ 		<themeversion>3</themeversion>
+ 	</details>
+ 	
+@@ -19,8 +19,8 @@
+ 	<variables>
+ 		<variable name="of" value="%screen_h%-400"/>
+ 		<variable name="rec" value="%screen_h%-320"/>
+-		<variable name="screen_width" value="1080"/>
+-		<variable name="screen_height" value="1920"/>
++		<variable name="screen_width" value="2400"/>
++		<variable name="screen_height" value="1080"/>
+ 		<variable name="header_color" value="#000000"/>
+ 		<variable name="background_color" value="#000000"/>
+ 	</variables>
+diff --git a/gui/theme/portrait_hdpi/themes/font.xml b/gui/theme/portrait_hdpi/themes/font.xml
+index eb9ca2bf..d2c956d4 100644
+--- a/gui/theme/portrait_hdpi/themes/font.xml
++++ b/gui/theme/portrait_hdpi/themes/font.xml
+@@ -1,42 +1,42 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<resources>
+-		<font name="status" filename="GoogleSans-Medium.ttf" size="40"/>
+-		<font name="bigfont" filename="Roboto-Medium.ttf" size="48"/>
+-		<font name="body1" filename="Roboto-Regular.ttf" size="42"/>
+-		<font name="body2" filename="Roboto-Medium.ttf" size="42"/>
+-		<font name="subhead" filename="Roboto-Regular.ttf" size="52"/>
+-		<font name="title" filename="Roboto-Medium.ttf" size="60"/>
+-		<font name="mainbutton" filename="Roboto-Regular.ttf" size="64"/>
+-		<font name="button" filename="Roboto-Medium.ttf" size="41"/>
+-		<font name="menu" filename="Roboto-Medium.ttf" size="44"/>
+-		<font name="input_fail" filename="Roboto-Medium.ttf" size="32"/>
+-		<font name="splash" filename="Roboto-Medium.ttf" size="47"/>
+-
+-		<font name="font_l" filename="Roboto-Medium.ttf" size="52"/>
+-		<font name="font_m" filename="Roboto-Medium.ttf" size="42"/>
+-		<font name="font_s" filename="Roboto-Medium.ttf" size="36"/>
+-		<font name="font_b" filename="Roboto-Medium.ttf" size="200"/>
+-
+-		<font name="keylabel" filename="Roboto-Regular.ttf" size="64"/>
+-		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="46"/>
+-		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="72"/>
+-		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="46"/>
+-		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="32"/>
+-		
+-		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="42"/>
+-		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="36"/>
+-		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="58"/>
+-		<font name="caption" filename="GoogleSans-Medium.ttf" size="36"/>
+-		
+-		<font name="clock" filename="GoogleSans-Regular.ttf" size="210"/>
+-		<font name="info" filename="GoogleSans-Medium.ttf" size="50"/>
+-	</resources>
+-	
+-	<variables>
+-		<variable name="theme_font" value="InterDisplay"/>
+-		<variable name="theme_sec_font" value="InterDisplay"/>
+-		<variable name="theme_font_size" value="n"/>
+-		<variable name="theme_font_weight" value="2"/>
+-	</variables>
+-</recovery>
+\ No newline at end of file
++<?xml version="1.0"?>
++<recovery>
++	<resources>
++		<font name="status" filename="GoogleSans-Medium.ttf" size="20"/>
++		<font name="bigfont" filename="Roboto-Medium.ttf" size="28"/>
++		<font name="body1" filename="Roboto-Regular.ttf" size="22"/>
++		<font name="body2" filename="Roboto-Medium.ttf" size="22"/>
++		<font name="subhead" filename="Roboto-Regular.ttf" size="24"/>
++		<font name="title" filename="Roboto-Medium.ttf" size="28"/>
++		<font name="mainbutton" filename="Roboto-Regular.ttf" size="28"/>
++		<font name="button" filename="Roboto-Medium.ttf" size="22"/>
++		<font name="menu" filename="Roboto-Medium.ttf" size="22"/>
++		<font name="input_fail" filename="Roboto-Medium.ttf" size="20"/>
++		<font name="splash" filename="Roboto-Medium.ttf" size="28"/>
++
++		<font name="font_l" filename="Roboto-Medium.ttf" size="28"/>
++		<font name="font_m" filename="Roboto-Medium.ttf" size="22"/>
++		<font name="font_s" filename="Roboto-Medium.ttf" size="20"/>
++		<font name="font_b" filename="Roboto-Medium.ttf" size="100"/>
++
++		<font name="keylabel" filename="Roboto-Regular.ttf" size="32"/>
++		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="26"/>
++		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="36"/>
++		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="22"/>
++		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="18"/>
++		
++		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="20"/>
++		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="18"/>
++		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="28"/>
++		<font name="caption" filename="GoogleSans-Medium.ttf" size="18"/>
++		
++		<font name="clock" filename="GoogleSans-Regular.ttf" size="100"/>
++		<font name="info" filename="GoogleSans-Medium.ttf" size="24"/>
++	</resources>
++	
++	<variables>
++		<variable name="theme_font" value="InterDisplay"/>
++		<variable name="theme_sec_font" value="InterDisplay"/>
++		<variable name="theme_font_size" value="n"/>
++		<variable name="theme_font_weight" value="2"/>
++	</variables>
++</recovery>
+diff --git a/gui/theme/portrait_hdpi/themes/navbar.xml b/gui/theme/portrait_hdpi/themes/navbar.xml
+index bd964771..240480da 100644
+--- a/gui/theme/portrait_hdpi/themes/navbar.xml
++++ b/gui/theme/portrait_hdpi/themes/navbar.xml
+@@ -1,9 +1,9 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<variables>
+-		<variable name="navbar_disable" value="1"/>
+-		<variable name="navbar_disable_add" value="96"/>
+-		<variable name="screen_h" value="%screen_original_h%+96"/>
+-		<variable name="real_gestures_enable" value="1"/>
+-	</variables>
+-</recovery>
+\ No newline at end of file
++<?xml version="1.0"?>
++<recovery>
++	<variables>
++		<variable name="navbar_disable" value="1"/>
++		<variable name="navbar_disable_add" value="0"/>
++		<variable name="screen_h" value="%screen_original_h%"/>
++		<variable name="real_gestures_enable" value="1"/>
++	</variables>
++</recovery>
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_b.xml b/gui/theme/portrait_hdpi/themes/sed/font_b.xml
+index fa09ff0e..e69d9faa 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_b.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_b.xml
+@@ -1,42 +1,42 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="45"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="53"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="47"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="47"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="56"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="65"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="69"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="46"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="49"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="53"/>
+-
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="56"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="46"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="41"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="205"/>
+-
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="67"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="48"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="76"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="49"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="38"/>
+-		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="46"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="67"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="240"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="50"/>
+-	</resources>
+-	
+-	<variables>
+-		<variable name="theme_font" value="#PRIMARY_NAME#"/>
+-		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
+-		<variable name="theme_font_size" value="b"/>
+-		<variable name="theme_font_weight" value="#WEIGHT#"/>
+-	</variables>
++<?xml version="1.0"?>
++<recovery>
++	<resources>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="24"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="30"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="35"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="37"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
++
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="30"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="112"/>
++
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="36"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="41"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="26"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="20"/>
++		
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="25"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++	</resources>
++	
++	<variables>
++		<variable name="theme_font" value="#PRIMARY_NAME#"/>
++		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
++		<variable name="theme_font_size" value="b"/>
++		<variable name="theme_font_weight" value="#WEIGHT#"/>
++	</variables>
+ </recovery>
+\ No newline at end of file
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_n.xml b/gui/theme/portrait_hdpi/themes/sed/font_n.xml
+index a8c49e45..12eeefa8 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_n.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_n.xml
+@@ -1,42 +1,42 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="40"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="48"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="42"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="42"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="52"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="60"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="64"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="41"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="44"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="47"/>
+-
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="52"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="42"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="200"/>
+-
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="64"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="46"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="72"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="46"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="32"/>
+-		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="42"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="58"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="240"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="50"/>
+-	</resources>
+-	
+-	<variables>
+-		<variable name="theme_font" value="#PRIMARY_NAME#"/>
+-		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
+-		<variable name="theme_font_size" value="n"/>
+-		<variable name="theme_font_weight" value="#WEIGHT#"/>
+-	</variables>
++<?xml version="1.0"?>
++<recovery>
++	<resources>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="22"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="23"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="28"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="33"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="24"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="17"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="28"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="110"/>
++
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="39"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="17"/>
++		
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="23"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="31"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++	</resources>
++	
++	<variables>
++		<variable name="theme_font" value="#PRIMARY_NAME#"/>
++		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
++		<variable name="theme_font_size" value="n"/>
++		<variable name="theme_font_weight" value="#WEIGHT#"/>
++	</variables>
+ </recovery>
+\ No newline at end of file
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_s.xml b/gui/theme/portrait_hdpi/themes/sed/font_s.xml
+index 00420ff1..62c66749 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_s.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_s.xml
+@@ -1,42 +1,42 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="35"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="34"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="34"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="43"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="54"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="55"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="35"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="44"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="47"/>
+-
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="52"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="42"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="200"/>
+-
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="64"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="46"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="72"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="46"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="32"/>
+-		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="38"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="58"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="30"/>
+-		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="240"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="50"/>
+-	</resources>
+-	
+-	<variables>
+-		<variable name="theme_font" value="#PRIMARY_NAME#"/>
+-		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
+-		<variable name="theme_font_size" value="s"/>
+-		<variable name="theme_font_weight" value="#WEIGHT#"/>
+-	</variables>
++<?xml version="1.0"?>
++<recovery>
++	<resources>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="18"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="18"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="23"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="30"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="24"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="17"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="28"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="110"/>
++
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="39"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="17"/>
++		
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="20"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="31"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="16"/>
++		
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++	</resources>
++	
++	<variables>
++		<variable name="theme_font" value="#PRIMARY_NAME#"/>
++		<variable name="theme_sec_font" value="#SECONDARY_NAME#"/>
++		<variable name="theme_font_size" value="s"/>
++		<variable name="theme_font_weight" value="#WEIGHT#"/>
++	</variables>
+ </recovery>
+\ No newline at end of file
+diff --git a/gui/theme/portrait_hdpi/ui.xml b/gui/theme/portrait_hdpi/ui.xml
+index 99eed886..7cff9b5e 100644
+--- a/gui/theme/portrait_hdpi/ui.xml
++++ b/gui/theme/portrait_hdpi/ui.xml
+@@ -2,7 +2,7 @@
+ <!-- OrangeFox theme by fordownloads and OrangeFox team -->
+ <recovery>
+ 	<details>
+-		<resolution width="1080" height="1920" />
++		<resolution width="2400" height="1080" />
+ 		<themeversion>3</themeversion>
+ 	</details>
+ 	
+-- 
+2.34.1
+
