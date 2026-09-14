@@ -23,6 +23,18 @@ index b9e91b6a..d5a7f067 100755
    mPersist.SetValue("tw_no_screen_timeout", "0");
  #endif
  
+diff --git a/gui/blanktimer.cpp b/gui/blanktimer.cpp
+index 1c946ea7..9d2a5ed7 100755
+--- a/gui/blanktimer.cpp
++++ b/gui/blanktimer.cpp
+@@ -56,6 +56,7 @@ void blanktimer::setTimer(void) {
+ }
+ 
+ void blanktimer::checkForTimeout() {
++	return;
+ #ifndef TW_NO_SCREEN_TIMEOUT
+ 	pthread_mutex_lock(&mutex);
+ 	timespec curTime, diff;
 diff --git a/gui/gesture.cpp b/gui/gesture.cpp
 index b2a2f390..0f483e09 100755
 --- a/gui/gesture.cpp
@@ -62,6 +74,56 @@ index 2b069413..54b0792c 100755
  			gr_blit(groupArrow->GetResource(), 0, 0, arrowW, arrowH, arrowX, arrowY);
  		}
  	} else if (isHighlight) {
+diff --git a/gui/theme/portrait_hdpi/pages/advanced.xml b/gui/theme/portrait_hdpi/pages/advanced.xml
+index 936a8874..520a6622 100644
+--- a/gui/theme/portrait_hdpi/pages/advanced.xml
++++ b/gui/theme/portrait_hdpi/pages/advanced.xml
+@@ -13,7 +13,7 @@
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%files_np_w%"/>
++				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@mount_btn}">
+ 					<icon res="mount_list"/>
+ 					<action function="page">mount</action>
+@@ -36,12 +36,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row4_3_y%"/>
++				<placement x="%gl_text_x%" y="520"/>
+ 				<text>{@listbox_group_additions}</text>
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row5_1_y%" w="%screen_w%" h="%adv_additions_h%"/>
++				<placement x="0" y="550" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@reflash_twrp}">
+ 					<icon res="wrench"/>
+ 					<condition var1="fox_branch" op="&gt;=" var2="11"/>
+@@ -194,7 +194,7 @@
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%files_np_w%"/>
++				<placement x="0" y="%row1_1a_y%" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@part_menu_hdr}">
+ 					<icon res="hard_disk"/>
+ 					<action function="page">part_options</action>
+diff --git a/gui/theme/portrait_hdpi/pages/anywhere.xml b/gui/theme/portrait_hdpi/pages/anywhere.xml
+index 6a0e9dc4..5490959a 100644
+--- a/gui/theme/portrait_hdpi/pages/anywhere.xml
++++ b/gui/theme/portrait_hdpi/pages/anywhere.xml
+@@ -70,7 +70,7 @@
+ 
+ 			<button style="btn_raised_hl">
+ 				<condition var1="lock_btn" var2="1"/>
+-				<placement x="%center_x%" y="%slider_y%" placement="4"/>
++				<placement x="%center_x%" y="600" placement="4"/>
+ 				<text>{@lockscreen_unlock}</text>
+ 				<action function="overlay"/>
+ 			</button>
 diff --git a/gui/theme/portrait_hdpi/pages/files.xml b/gui/theme/portrait_hdpi/pages/files.xml
 index c4b4fc06..95ba0e47 100644
 --- a/gui/theme/portrait_hdpi/pages/files.xml
@@ -150,32 +212,222 @@ index c4b4fc06..95ba0e47 100644
  				<text>%tw_name_filter%</text>
  				<data name="tw_name_filter"/>
  				<action function="set">tw_reload_fm=1</action>
+diff --git a/gui/theme/portrait_hdpi/pages/restore.xml b/gui/theme/portrait_hdpi/pages/restore.xml
+index 835b6ec8..67b6923b 100644
+--- a/gui/theme/portrait_hdpi/pages/restore.xml
++++ b/gui/theme/portrait_hdpi/pages/restore.xml
+@@ -120,34 +120,34 @@
+ 			<image>
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<image resource="empty_folder"/>
+-				<placement x="304" y="%row1_3_y%"/>
++				<placement x="%center_x%" y="240" placement="4"/>
+ 			</image>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="%row5_1_y%" placement="4"/>
++				<placement x="%center_x%" y="420" placement="4"/>
+ 				<text>{@backups_wat}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%row5_2_y%" placement="4"/>
++				<placement x="%center_x%" y="420" placement="4"/>
+ 				<text>{@backups_rw_error_1}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="%row5_3a_y%" placement="4"/>
++				<placement x="%center_x%" y="460" placement="4"/>
+ 				<text>{@backups_rw_error_2}</text>
+ 			</text>
+ 
+ 			<button style="btn_raised_hl">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="%row6_1a_y%" placement="4"/>
++				<placement x="%center_x%" y="540" placement="4"/>
+ 				<text>{@backup_short_hdr}</text>
+ 				<action function="set">tw_encrypt_backup=0</action>
+ 				<action function="set">tw_backup_password=</action>
+@@ -158,7 +158,7 @@
+ 			<button style="btn_raised">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<text>{@select_storage_hdr}</text>
+-				<placement x="%center_x%" y="%row7_1_y%" placement="4"/>
++				<placement x="%center_x%" y="630" placement="4"/>
+ 				<action function="set">of_show_storage_selection=1</action>
+ 			</button>
+ 			
+diff --git a/gui/theme/portrait_hdpi/pages/settings.xml b/gui/theme/portrait_hdpi/pages/settings.xml
+index db827849..87a3fb72 100644
+--- a/gui/theme/portrait_hdpi/pages/settings.xml
++++ b/gui/theme/portrait_hdpi/pages/settings.xml
+@@ -5,7 +5,7 @@
+ 		<page name="settings">
+ 			<listbox style="group_list">
+ 				<placement x="0" y="%ab_h%" w="%screen_w%" h="%bl_fullscreen_h%"/>
+-				<iconsize w="216" h="168" padding="24"/>
++				<iconsize w="180" h="84" padding="16"/>
+ 				<listitem name="{@settings_general}">
+ 					<icon res="bs_btn_set_global"/>
+ 					<action function="set">general_back=settings</action>
+diff --git a/gui/theme/portrait_hdpi/pages/wipe.xml b/gui/theme/portrait_hdpi/pages/wipe.xml
+index b8899de3..de49bc6d 100644
+--- a/gui/theme/portrait_hdpi/pages/wipe.xml
++++ b/gui/theme/portrait_hdpi/pages/wipe.xml
+@@ -16,18 +16,18 @@
+ 			<template name="tabs"/>
+ 			
+ 			<button style="tab_btn_hl">
+-				<placement x="156" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="800" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@wipe_hdr}</text>
+ 			</button>
+ 
+ 			<button style="tab_btn">
+-				<placement x="564" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="1220" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@format_data_hdr}</text>
+ 				<action function="page">formatdata</action>
+ 			</button>
+ 			
+ 			<image style="tab">
+-				<placement x="180" y="%tab_title_h%" placement="2"/>
++				<placement x="834" y="%tab_title_h%" placement="2"/>
+ 			</image>
+ 
+ 			<text style="text_ab_title">
+@@ -93,18 +93,18 @@
+ 			<template name="tabs"/>
+ 			
+ 			<button style="tab_btn">
+-				<placement x="156" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="800" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@wipe_hdr}</text>
+ 				<action function="page">wipe</action>
+ 			</button>
+ 
+ 			<button style="tab_btn_hl">
+-				<placement x="564" y="%tab_btn_y%" w="360" h="84"/>
++				<placement x="1220" y="%tab_btn_y%" w="380" h="84"/>
+ 				<text>{@format_data_hdr}</text>
+ 			</button>
+ 			
+ 			<image style="tab">
+-				<placement x="588" y="%tab_title_h%" placement="2"/>
++				<placement x="1254" y="%tab_title_h%" placement="2"/>
+ 			</image>
+ 
+ 			<text style="text_ab_title">
 diff --git a/gui/theme/portrait_hdpi/resources/images.xml b/gui/theme/portrait_hdpi/resources/images.xml
-index 1d8dec09..508b65d2 100644
+index 1d8dec09..4643f598 100644
 --- a/gui/theme/portrait_hdpi/resources/images.xml
 +++ b/gui/theme/portrait_hdpi/resources/images.xml
-@@ -20,7 +20,7 @@
- 		<shape name="nav_empty" w="200" h="168" color="#00000000"/>
- 		<shape name="nav_hl" color="#B8B8B842" radius="36" w="200" h="168"/>
+@@ -17,13 +17,13 @@
+ 		<shape name="btn_flat_qw" w="%btn_half_w%" h="%btn_h%" radius="-1" stroke="3" color="#666666"/>
+ 
+ 		<shape name="btn_raised_warn" w="%btn_w%" h="%btn_h%" radius="-1" color="#E51C23" />
+-		<shape name="nav_empty" w="200" h="168" color="#00000000"/>
+-		<shape name="nav_hl" color="#B8B8B842" radius="36" w="200" h="168"/>
++		<shape name="nav_empty" w="200" h="100" color="#00000000"/>
++		<shape name="nav_hl" color="#B8B8B842" radius="28" w="200" h="100"/>
  		<shape name="nb_gesture_line" w="210" h="7" color="%text%" radius="-1" />
 -		<shape name="search_bar_bg" color="%cards_bg%" radius="36" w="984" h="260" />
-+		<shape name="search_bar_bg" color="%cards_bg%" radius="36" w="%search_bar_w%" h="260" />
++		<shape name="search_bar_bg" color="%cards_bg%" radius="24" w="%search_bar_w%" h="100" />
  		<shape name="nav_pill" color="%accent%" radius="-1" w="%np_pill_w%" h="%np_pill_h%" />
  
- 		<shape name="power_card" color="%cards_bg%" radius="32" w="324" h="294" />
-@@ -31,8 +31,8 @@
+-		<shape name="power_card" color="%cards_bg%" radius="32" w="324" h="294" />
++		<shape name="power_card" color="%cards_bg%" radius="24" w="280" h="190" />
+ 
+ 		<shape name="nb_empty" color="#00000000" w="318" h="144" />
+ 		<shape name="nb_hl" color="#B8B8B842" radius="-1" w="318" h="144" />
+@@ -31,15 +31,15 @@
  		<shape name="nav_bg" color="%cards_bg%" radius="36" w="%nav_panel_w%" h="%nav_panel_h%" />
  
  		<!-- Main switch background -->
 -		<shape name="main_switch_card_active" color="%accent%" radius="48" w="1000" h="168"/>
 -		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="48" w="1000" h="168"/>
-+		<shape name="main_switch_card_active" color="%accent%" radius="48" w="%main_switch_w%" h="168"/>
-+		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="48" w="%main_switch_w%" h="168"/>
++		<shape name="main_switch_card_active" color="%accent%" radius="32" w="%main_switch_w%" h="110"/>
++		<shape name="main_switch_card_not_active" color="%disabled_bg%" radius="32" w="%main_switch_w%" h="110"/>
  
  		<!-- Current maintainer chip -->
  		<shape name="maintainer_chip_bg" color="%accent%" radius="32" w="270" h="70"/>
+ 
+ 		<!-- FAB -->
+-		<shape name="fab" color="%accent%" radius="-1" w="168" h="168" />
+-		<shape name="fab_hl" color="%cards_bg%" radius="-1" w="168" h="168" />
++		<shape name="fab" color="%accent%" radius="-1" w="120" h="120" />
++		<shape name="fab_hl" color="%cards_bg%" radius="-1" w="120" h="120" />
+ 		<shape name="tab_hl" color="%accent%" radius="-1" w="312" h="8" />
+ 		
+ 		<image name="actionbar_btn" filename="Default/ActionBar/actionbar_btn" retainaspect="1"/>
+diff --git a/gui/theme/portrait_hdpi/resources/styles.xml b/gui/theme/portrait_hdpi/resources/styles.xml
+index cec160fa..c8177285 100644
+--- a/gui/theme/portrait_hdpi/resources/styles.xml
++++ b/gui/theme/portrait_hdpi/resources/styles.xml
+@@ -183,18 +183,18 @@
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="%col1_x_caption%" h="68" padding="18"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+ 		<style name="settingslist_group">
+ 			<highlight color="%highlight_color_full%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="24" bottom="24"/>
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="%col1_x_caption%" h="68" padding="18"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -257,11 +257,11 @@
+ 		<style name="partitionlist">
+ 			<background color="%background%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="24" bottom="24"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false" />
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="%col1_x_caption%" h="68" padding="18"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -292,7 +292,7 @@
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<background color="%background%" />
+ 			<exicon up="up_icon" link="link_icon" block="block_icon"  zip="zip_icon" img="img_icon" txt="txt_icon" png="png_icon" />
+-			<iconsize w="216" h="168" padding="0" bg="fs_bg_big" />
++			<iconsize w="160" h="110" padding="0" bg="fs_bg_big" />
+ 			<font resource="body2" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -301,7 +301,7 @@
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<background color="%background%" />
+ 			<exicon up="up_icon_small" link="link_icon_small" block="block_icon_small" zip="zip_icon_small" img="img_icon_small" txt="txt_icon_small" png="png_icon_small" />
+-			<iconsize w="128" h="96" padding="-4" />
++			<iconsize w="110" h="80" padding="-4" />
+ 			<font resource="body2" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
 diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
-index 7dcffc29..29da2c69 100644
+index 7dcffc29..46661aa6 100644
 --- a/gui/theme/portrait_hdpi/resources/vars.xml
 +++ b/gui/theme/portrait_hdpi/resources/vars.xml
 @@ -24,8 +24,7 @@
@@ -188,65 +440,187 @@ index 7dcffc29..29da2c69 100644
  
  		<!-- Device settings -->
  		<variable name="charging_now" value="0"/>
-@@ -108,8 +107,8 @@
+@@ -62,7 +61,7 @@
+ 		<variable name="key_numbar" value="0" persist="1"/>
+ 		<variable name="use_fixed_font" value="1" persist="1"/>
+ 		<variable name="show_cpu_temp" value="1" persist="1"/>
+-		<variable name="list_font" value="1" persist="1"/>
++		<variable name="list_font" value="0" persist="1"/>
+ 		<variable name="navbar_sams" value="0" persist="1"/>
+ 		<variable name="show_slideout" value="1" persist="1"/>
+ 		<variable name="style_battery" value="2" persist="1"/>
+@@ -102,102 +101,100 @@
+ 
+ 		<!-- Placement -->
+ 		<variable name="welcome_logo" value="%center_y%-180"/>
+-		<variable name="welcome_text" value="%center_y%+180"/>
+-		<variable name="welcome_text2" value="%center_y%+260"/>
+-		<variable name="empty_text_y" value="%center_y%+288"/>
++		<variable name="welcome_text" value="%center_y%+60"/>
++		<variable name="welcome_text2" value="%center_y%+120"/>
++		<variable name="empty_text_y" value="%center_y%+140"/>
  		
  		<!-- Screen size -->
- 		<variable name="cutout_w" value="%status_h%-72"/>
+-		<variable name="cutout_w" value="%status_h%-72"/>
 -		<variable name="center_x" value="540"/>
 -		<variable name="screen_w" value="1080"/>
+-		<variable name="screen_min_cut" value="%screen_h%-%cutout_w%"/>
+-		<variable name="screen_plus_cut" value="%screen_h%+%cutout_w%"/>
++		<variable name="cutout_w" value="0"/>
 +		<variable name="center_x" value="1200"/>
 +		<variable name="screen_w" value="2400"/>
- 		<variable name="screen_min_cut" value="%screen_h%-%cutout_w%"/>
- 		<variable name="screen_plus_cut" value="%screen_h%+%cutout_w%"/>
++		<variable name="screen_min_cut" value="%screen_h%"/>
++		<variable name="screen_plus_cut" value="%screen_h%"/>
  
-@@ -124,7 +123,7 @@
+ 		<!-- EDL -->
+ 		<variable name="tw_edl_mode" value="%tw_edl_mode%"/>
+ 
+ 		<!-- OTA -->
+-		<variable name="ota_update_title_y" value="%center_y%+320"/>
+-		<variable name="ota_update_progress_y" value="%center_y%+400"/>
++		<variable name="ota_update_title_y" value="%center_y%+100"/>
++		<variable name="ota_update_progress_y" value="%center_y%+160"/>
+ 		<variable name="ota_update_progress_x" value="326"/>
+-		<variable name="ota_update_log_y" value="%center_y%+600"/>
++		<variable name="ota_update_log_y" value="%center_y%+240"/>
  		
  		<!-- FAB above NavPanel -->
- 		<variable name="btn_float_size" value="168"/>
+-		<variable name="btn_float_size" value="168"/>
 -		<variable name="btn_float_x" value="948"/>
-+		<variable name="btn_float_x" value="2268"/>
- 		<variable name="btn_float_y" value="%screen_h%-294"/>
- 		<variable name="btn_float_nav_y" value="%screen_h%-444"/>
- 		<variable name="btn_sfloat_1_y" value="%screen_h%-1104"/>
-@@ -132,7 +131,7 @@
- 		<variable name="btn_sfloat_3_y" value="%screen_h%-744"/>
+-		<variable name="btn_float_y" value="%screen_h%-294"/>
+-		<variable name="btn_float_nav_y" value="%screen_h%-444"/>
+-		<variable name="btn_sfloat_1_y" value="%screen_h%-1104"/>
+-		<variable name="btn_sfloat_2_y" value="%screen_h%-924"/>
+-		<variable name="btn_sfloat_3_y" value="%screen_h%-744"/>
++		<variable name="btn_float_size" value="120"/>
++		<variable name="btn_float_x" value="%screen_w%-120"/>
++		<variable name="btn_float_y" value="%screen_h%-150"/>
++		<variable name="btn_float_nav_y" value="%screen_h%-210"/>
++		<variable name="btn_sfloat_1_y" value="%screen_h%-500"/>
++		<variable name="btn_sfloat_2_y" value="%screen_h%-400"/>
++		<variable name="btn_sfloat_3_y" value="%screen_h%-300"/>
  		
  		<!-- NavPanel -->
 -		<variable name="nav_item_w" value="270"/>
+-		<variable name="nav_panel_h" value="216"/>
 +		<variable name="nav_item_w" value="576"/>
- 		<variable name="nav_panel_h" value="216"/>
++		<variable name="nav_panel_h" value="100"/>
  		<variable name="nav_panel_full_h" value="%screen_w%-360"/>
  		<variable name="nav_panel_id" value="0"/>
-@@ -142,20 +141,20 @@
- 		<variable name="nav_icon_y" value="%screen_h%-282"/>
- 		<variable name="nav_text_y" value="%screen_h%-202"/>
- 		<variable name="nav_item_y" value="%screen_h%-252"/>
+ 		<variable name="nav_panel_w" value="%screen_w%-96"/>
+ 		<variable name="nav_panel_x" value="48"/>
+-		<variable name="nav_panel_y" value="%screen_h%-360"/>
+-		<variable name="nav_icon_y" value="%screen_h%-282"/>
+-		<variable name="nav_text_y" value="%screen_h%-202"/>
+-		<variable name="nav_item_y" value="%screen_h%-252"/>
 -		<variable name="nav_item_1" value="171"/>
 -		<variable name="nav_item_2" value="417"/>
 -		<variable name="nav_item_3" value="663"/>
 -		<variable name="nav_item_4" value="909"/>
++		<variable name="nav_panel_y" value="%screen_h%-116"/>
++		<variable name="nav_icon_y" value="%screen_h%-78"/>
++		<variable name="nav_text_y" value="%screen_h%-28"/>
++		<variable name="nav_item_y" value="%screen_h%-66"/>
 +		<variable name="nav_item_1" value="336"/>
 +		<variable name="nav_item_2" value="912"/>
 +		<variable name="nav_item_3" value="1488"/>
 +		<variable name="nav_item_4" value="2064"/>
  		<variable name="nav_path_w" value="648"/>
- 
+-
  		
- 		<variable name="np_pill_w" value="192"/>
- 		<variable name="np_pill_h" value="96"/>
- 		<variable name="np_pill_y" value="%screen_h%-330"/>
+-		<variable name="np_pill_w" value="192"/>
+-		<variable name="np_pill_h" value="96"/>
+-		<variable name="np_pill_y" value="%screen_h%-330"/>
 -		<variable name="np_pill_x1" value="75"/> <!-- 48 + 27 -->
 -		<variable name="np_pill_x2" value="321"/> <!-- 48 + 27 + np_pill_w + 27 + 27 -->
 -		<variable name="np_pill_x3" value="567"/>
 -		<variable name="np_pill_x4" value="813"/>
-+		<variable name="np_pill_x1" value="240"/>
-+		<variable name="np_pill_x2" value="816"/>
-+		<variable name="np_pill_x3" value="1392"/>
-+		<variable name="np_pill_x4" value="1968"/>
++		<variable name="np_pill_w" value="180"/>
++		<variable name="np_pill_h" value="72"/>
++		<variable name="np_pill_y" value="%screen_h%-102"/>
++		<variable name="np_pill_x1" value="246"/>
++		<variable name="np_pill_x2" value="822"/>
++		<variable name="np_pill_x3" value="1398"/>
++		<variable name="np_pill_x4" value="1974"/>
  		
  		<!-- File Selector w/ NavPanel -->
- 		<variable name="files_np_w" value="%screen_min_cut%-600"/>
-@@ -224,20 +223,20 @@
+-		<variable name="files_np_w" value="%screen_min_cut%-600"/>
+-		<variable name="files_np_mm_y" value="408+%cutout_w%"/>
++		<variable name="files_np_w" value="%screen_min_cut%-230"/>
++		<variable name="files_np_mm_y" value="150"/>
+ 		
+ 		<!-- UI w/ NavPanel -->
+-		<variable name="slider_np_y" value="%screen_h%-534"/>
+-		<variable name="slider_text_np_y" value="%screen_h%-642"/>
+-		<variable name="slider_text_y_l" value="%screen_original_h%-281"/>
++		<variable name="slider_np_y" value="%screen_h%-190"/>
++		<variable name="slider_text_np_y" value="%screen_h%-245"/>
++		<variable name="slider_text_y_l" value="%screen_original_h%-200"/>
+ 		
+ 		<!-- Wait screens -->
+-		<variable name="busy_text" value="%screen_original_h%-144"/>
++		<variable name="busy_text" value="%screen_original_h%-100"/>
+ 		
+ 		<!-- AR UI -->
+-		<variable name="magisk_list_h" value="%screen_min_cut%-882"/>
+-		<variable name="fullscreen_list_h" value="%screen_min_cut%-504"/>
+-		<variable name="fullscreen_list_info_h" value="%screen_min_cut%-732"/>
+-		<variable name="part_list_btns_h" value="%screen_min_cut%-1446"/> <!-- Backup parts -->
+-		<variable name="part_backup_info_y" value="%screen_h%-678"/>
+-		<variable name="part_backup_line_y" value="%screen_h%-696"/>
+-		<variable name="part_list_btns_9_h" value="%screen_min_cut%-1188"/> <!-- Wipe parts -->
+-		<variable name="part_list_mount_h" value="%screen_min_cut%-654"/> <!-- Mount parts -->
+-		
+-		<!--variable name="flash_img_part_expanded" value="%screen_min_cut%-1122"/-->
+-		<variable name="flash_img_part" value="%screen_min_cut%-1396"/>
+-		<variable name="restore_part" value="%screen_min_cut%-1506"/>
++		<variable name="magisk_list_h" value="%screen_min_cut%-300"/>
++		<variable name="fullscreen_list_h" value="%screen_min_cut%-200"/>
++		<variable name="fullscreen_list_info_h" value="%screen_min_cut%-300"/>
++		<variable name="part_list_btns_h" value="%screen_min_cut%-660"/> <!-- Backup parts: 1080 - 550 = 530px tall -->
++		<variable name="part_backup_info_y" value="%screen_h%-260"/>
++		<variable name="part_backup_line_y" value="%screen_h%-290"/>
++		<variable name="part_list_btns_9_h" value="%screen_min_cut%-510"/> <!-- Wipe parts: 1080 - 460 = 620px tall -->
++		<variable name="part_list_mount_h" value="%screen_min_cut%-320"/> <!-- Mount parts: 1080 - 320 = 760px tall -->
++		
++		<variable name="flash_img_part" value="%screen_min_cut%-460"/>
++		<variable name="restore_part" value="%screen_min_cut%-460"/>
+ 
+ 		<!-- Workshop -->
+-		<variable name="ws_cards_y1" value="%cutout_w%+488"/>
+-		<variable name="ws_cards_y2" value="%cutout_w%+848"/>
+-		<variable name="ws_cards_y3" value="%cutout_w%+1208"/>
+-		<variable name="ws_cards_y4" value="%cutout_w%+1464"/>
+-		<variable name="ws_cards_y5" value="%cutout_w%+1720"/>
++		<variable name="ws_cards_y1" value="180"/>
++		<variable name="ws_cards_y2" value="340"/>
++		<variable name="ws_cards_y3" value="500"/>
++		<variable name="ws_cards_y4" value="660"/>
++		<variable name="ws_cards_y5" value="820"/>
+ 		<variable name="ws_cards_x1" value="156"/>
+ 		<variable name="ws_cards_x2" value="412"/>
+ 		<variable name="ws_cards_x3" value="668"/>
+ 		<variable name="ws_cards_x4" value="924"/>
+ 		
+ 		<!-- Splash -->
+-		<variable name="spl_preview_h" value="720"/>
++		<variable name="spl_preview_h" value="360"/>
+ 		<variable name="spl_preview_bg" value="%screen_h%-%row4_3_y%"/>
+-		<variable name="spl_list_h" value="%screen_min_cut%-1104"/>
++		<variable name="spl_list_h" value="%screen_min_cut%-350"/>
+ 		
+ 		<!-- Favorites -->
+ 		<variable name="book_edit" value="0"/>
+@@ -218,173 +215,173 @@
+ 		<variable name="dbg_b" value="main"/>
+ 
+ 		<!-- Power Menu -->
+-		<variable name="pc_y" value="%cutout_w%+108"/>
+-		<variable name="pc_icon_y" value="%cutout_w%+240"/>
+-		<variable name="pc_text_y" value="%cutout_w%+320"/>
++		<variable name="pc_y" value="60"/>
++		<variable name="pc_icon_y" value="120"/>
++		<variable name="pc_text_y" value="160"/>
  		
  		<!-- Content placement -->
  		<variable name="col1_x" value="48"/>
@@ -269,24 +643,243 @@ index 7dcffc29..29da2c69 100644
 -		<variable name="content_w" value="984"/>
 +		<variable name="content_w" value="%screen_w%-96"/>
  		<variable name="listbox_tz_width_2" value="540"/>
- 		<variable name="fm_search_h" value="%screen_min_cut%-1028"/>
- 		<variable name="fm_search_num_h" value="%screen_min_cut%-1140"/>
-@@ -342,11 +341,11 @@
+-		<variable name="fm_search_h" value="%screen_min_cut%-1028"/>
+-		<variable name="fm_search_num_h" value="%screen_min_cut%-1140"/>
+-		<variable name="modern_storage_shadow_y" value="%cutout_w%+816"/>
+-		<variable name="modern_storage_h" value="456"/>
++		<variable name="fm_search_h" value="%screen_min_cut%-300"/>
++		<variable name="fm_search_num_h" value="%screen_min_cut%-380"/>
++		<variable name="modern_storage_shadow_y" value="300"/>
++		<variable name="modern_storage_h" value="400"/>
+ 
+ 		<variable name="warn_center_y" value="%center_y%-40"/>
+ 		<variable name="warn_center2_y" value="%center_y%+40"/>
+ 		
+ 		<!-- button list height -->
+-		<variable name="bl_h1" value="144"/>
+-		<variable name="bl_h2" value="288"/>
+-		<variable name="bl_h3" value="432"/>
+-		<variable name="bl_h4" value="576"/>
+-		<variable name="bl_h5" value="720"/>
+-		<variable name="bl_h6" value="864"/>
+-		
+-		<variable name="bl_fullscreen_h" value="%screen_min_cut%-384"/>
+-		<variable name="bl_files_h" value="%screen_min_cut%-600"/>
+-		<variable name="input_btn_list_y" value="674+%cutout_w%"/>
++		<variable name="bl_h1" value="90"/>
++		<variable name="bl_h2" value="180"/>
++		<variable name="bl_h3" value="270"/>
++		<variable name="bl_h4" value="360"/>
++		<variable name="bl_h5" value="450"/>
++		<variable name="bl_h6" value="540"/>
++		
++		<variable name="bl_fullscreen_h" value="%screen_min_cut%-230"/>
++		<variable name="bl_files_h" value="%screen_min_cut%-240"/>
++		<variable name="input_btn_list_y" value="250"/>
+ 
+-		<variable name="down_menu_btn_y" value="%screen_h%-576"/>
+-		<variable name="down_menu_btn2_y" value="%screen_h%-432"/>
+-		<variable name="down_menu_btn2_caption_y" value="%screen_h%-448"/>
+-		<variable name="down_menu_y" value="%screen_h%-998"/>
+-		<variable name="down_menu_y_pre" value="%screen_h%-1050"/>
++		<!-- Down Menu -->
++		<variable name="down_menu_btn_y" value="%screen_h%-380"/>
++		<variable name="down_menu_btn2_y" value="%screen_h%-280"/>
++		<variable name="down_menu_btn2_caption_y" value="%screen_h%-300"/>
++		<variable name="down_menu_y" value="%screen_h%-650"/>
++		<variable name="down_menu_y_pre" value="%screen_h%-700"/>
+ 
+ 		<!-- chmod -->
+ 		<variable name="ch_r_x" value="315"/>
+ 		<variable name="ch_w_x" value="513"/>
+ 		<variable name="ch_x_x" value="711"/>
+-		<variable name="ch_own_y" value="%cutout_w%+771"/>
+-		<variable name="ch_grp_y" value="%cutout_w%+881"/>
+-		<variable name="ch_oth_y" value="%cutout_w%+991"/>
+-		<variable name="ch_sph_y" value="%cutout_w%+1209"/>
++		<variable name="ch_own_y" value="300"/>
++		<variable name="ch_grp_y" value="380"/>
++		<variable name="ch_oth_y" value="460"/>
++		<variable name="ch_sph_y" value="580"/>
+ 		<variable name="txt_r_x" value="259"/>
+ 		<variable name="txt_w_x" value="457"/>
+ 		<variable name="txt_x_x" value="655"/>
+ 
+-		<variable name="chtxt_own_y" value="%cutout_w%+766"/>
+-		<variable name="chtxt_grp_y" value="%cutout_w%+876"/>
+-		<variable name="chtxt_oth_y" value="%cutout_w%+986"/>
++		<variable name="chtxt_own_y" value="295"/>
++		<variable name="chtxt_grp_y" value="375"/>
++		<variable name="chtxt_oth_y" value="455"/>
+ 
+ 		<variable name="chtxt_r_x" value="332"/>
+ 		<variable name="chtxt_w_x" value="540"/>
+ 		<variable name="chtxt_x_x" value="738"/>
+-		<variable name="chtxt_y" value="%cutout_w%+697"/>
+-		<variable name="chtxt_sph_y" value="%cutout_w%+1135"/>
+-		<!-- row6_1_y -->
++		<variable name="chtxt_y" value="250"/>
++		<variable name="chtxt_sph_y" value="540"/>
+ 
+ 		<!-- About -->
+-		<variable name="about_title_h" value="576+%cutout_w%"/>
+-		<variable name="tab_title_h" value="360+%cutout_w%"/>
+-		<variable name="tab_btn_y" value="240+%cutout_w%"/>
+-		<variable name="credits_listbox_h" value="%screen_min_cut%-552"/>
+-		<variable name="about_logo_y" value="280+%cutout_w%"/>
++		<variable name="about_title_h" value="260"/>
++		<variable name="tab_title_h" value="180"/>
++		<variable name="tab_btn_y" value="115"/>
++		<variable name="credits_listbox_h" value="%screen_min_cut%-250"/>
++		<variable name="about_logo_y" value="130"/>
+ 		<variable name="about_logo_x" value="96"/>
+ 		<variable name="about_txt_x" value="370"/>
+-		<variable name="about_txt2_y" value="370+%cutout_w%"/>
+-		<variable name="about_txt3_y" value="420+%cutout_w%"/>
+-		<variable name="about_txt4_y" value="470+%cutout_w%"/>
+-		
+-		<variable name="cardtxt_1" value="718+%cutout_w%"/>
+-		<variable name="cardtxt_2" value="778+%cutout_w%"/>
+-		<variable name="cardtxt_3" value="1006+%cutout_w%"/>
+-		<variable name="cardtxt_4" value="1066+%cutout_w%"/>
+-		<variable name="cardtxt_5" value="1294+%cutout_w%"/>
+-		<variable name="cardtxt_6" value="1354+%cutout_w%"/>
+-		<variable name="cardtxt_7" value="1582+%cutout_w%"/>
+-		<variable name="cardtxt_8" value="1642+%cutout_w%"/>
+-		
+-		<variable name="card1_y" value="576+%cutout_w%"/>
+-		<variable name="card2_y" value="864+%cutout_w%"/>
+-		<variable name="card3_y" value="1152+%cutout_w%"/>
+-		<variable name="card4_y" value="1440+%cutout_w%"/>
+-		<variable name="card4_btn_y" value="1604+%cutout_w%"/>
++		<variable name="about_txt2_y" value="180"/>
++		<variable name="about_txt3_y" value="215"/>
++		<variable name="about_txt4_y" value="250"/>
++		
++		<variable name="cardtxt_1" value="340"/>
++		<variable name="cardtxt_2" value="375"/>
++		<variable name="cardtxt_3" value="490"/>
++		<variable name="cardtxt_4" value="525"/>
++		<variable name="cardtxt_5" value="640"/>
++		<variable name="cardtxt_6" value="675"/>
++		<variable name="cardtxt_7" value="790"/>
++		<variable name="cardtxt_8" value="825"/>
++		
++		<variable name="card1_y" value="280"/>
++		<variable name="card2_y" value="430"/>
++		<variable name="card3_y" value="580"/>
++		<variable name="card4_y" value="730"/>
++		<variable name="card4_btn_y" value="860"/>
+ 		
+ 		<variable name="card1_mtag_x" value="744"/>
+ 		<variable name="card1_ctag_x" value="748"/>
+-		<variable name="card1_mtag_y" value="636+%cutout_w%"/>
+-		<variable name="card2_mtag_y" value="924+%cutout_w%"/>
+-		<variable name="card3_mtag_y" value="1212+%cutout_w%"/>
+-		<variable name="card4_mtag_y" value="1500+%cutout_w%"/>
+-		<variable name="card1_ctag_y" value="640+%cutout_w%"/>
+-		<variable name="card2_ctag_y" value="928+%cutout_w%"/>
+-		<variable name="card3_ctag_y" value="1216+%cutout_w%"/>
+-		<variable name="card4_ctag_y" value="1504+%cutout_w%"/>
++		<variable name="card1_mtag_y" value="315"/>
++		<variable name="card2_mtag_y" value="465"/>
++		<variable name="card3_mtag_y" value="615"/>
++		<variable name="card4_mtag_y" value="765"/>
++		<variable name="card1_ctag_y" value="319"/>
++		<variable name="card2_ctag_y" value="469"/>
++		<variable name="card3_ctag_y" value="619"/>
++		<variable name="card4_ctag_y" value="769"/>
+ 
+-		<variable name="card_img1_y" value="648+%cutout_w%"/>
+-		<variable name="card_img2_y" value="936+%cutout_w%"/>
+-		<variable name="card_img3_y" value="1224+%cutout_w%"/>
+-		<variable name="card_img4_y" value="1512+%cutout_w%"/>
++		<variable name="card_img1_y" value="325"/>
++		<variable name="card_img2_y" value="475"/>
++		<variable name="card_img3_y" value="625"/>
++		<variable name="card_img4_y" value="775"/>
+ 		
+ 		<variable name="card_txt_x" value="300"/>
+ 		<variable name="card_img_x" value="72"/>
+ 		
+-		<variable name="btn_float_center_y" value="%screen_h%-294"/>
++		<variable name="btn_float_center_y" value="%screen_h%-150"/>
+ 		
+ 		<!-- NavBar -->
+ 		<variable name="row_nav_text_y" value="%row_nav_y%+%bs_text_offset%"/>
+-		<variable name="row_nav_y" value="%screen_h%-144"/>
++		<variable name="row_nav_y" value="%screen_h%-100"/>
  		<variable name="row_navbtn_w" value="318"/>
- 		<variable name="row_navbtn_y" value="%screen_h%-72"/>
+-		<variable name="row_navbtn_y" value="%screen_h%-72"/>
++		<variable name="row_navbtn_y" value="%screen_h%-50"/>
  		<variable name="back_button_x" value="237"/>
 -		<variable name="slideout_button_x" value="843"/>
+-		<variable name="nav_h" value="144"/>
 +		<variable name="slideout_button_x" value="2163"/>
- 		<variable name="nav_h" value="144"/>
++		<variable name="nav_h" value="100"/>
  		
  		<!-- Status Bar -->
 -		<variable name="status_right_x" value="1060-%status_indent_right%"/>
 +		<variable name="status_right_x" value="%screen_w%-20-%status_indent_right%"/>
  		
  		<!-- Big invisible button -->
- 		<variable name="mb_h_hide" value="120"/>
-@@ -381,10 +380,10 @@
- 		<variable name="lb_group_l10" value="980"/>
+-		<variable name="mb_h_hide" value="120"/>
++		<variable name="mb_h_hide" value="70"/>
+ 		
+ 		<!-- Listbox height -->
+-		<variable name="lb_l1" value="90"/>
+-		<variable name="lb_l2" value="180"/>
+-		<variable name="lb_l3" value="270"/>
+-		<variable name="lb_l3_dynamic" value="%screen_min_cut%-1650"/>
+-		<variable name="lb_l4" value="360"/>
+-		<variable name="lb_l5" value="450"/>
+-		<variable name="lb_l6" value="540"/>
+-		<variable name="lb_l7" value="630"/>
+-		<variable name="lb_l8" value="720"/>
+-		<variable name="lb_l9" value="810"/>
+-		<variable name="lb_l10" value="900"/>
+-		<variable name="lb_l11" value="990"/>
+-		<variable name="lb_l12" value="1080"/>
+-		<variable name="lb_l13" value="1170"/>
+-		<variable name="lb_l14" value="1260"/>
+-		<variable name="lb_l15" value="1350"/>
++		<variable name="lb_l1" value="68"/>
++		<variable name="lb_l2" value="136"/>
++		<variable name="lb_l3" value="204"/>
++		<variable name="lb_l3_dynamic" value="%screen_min_cut%-350"/>
++		<variable name="lb_l4" value="272"/>
++		<variable name="lb_l5" value="340"/>
++		<variable name="lb_l6" value="408"/>
++		<variable name="lb_l7" value="476"/>
++		<variable name="lb_l8" value="544"/>
++		<variable name="lb_l9" value="612"/>
++		<variable name="lb_l10" value="680"/>
++		<variable name="lb_l11" value="748"/>
++		<variable name="lb_l12" value="816"/>
++		<variable name="lb_l13" value="884"/>
++		<variable name="lb_l14" value="952"/>
++		<variable name="lb_l15" value="1020"/>
+ 
+-		<variable name="lb_group_l1" value="170"/>
+-		<variable name="lb_group_l2" value="260"/>
+-		<variable name="lb_group_l3" value="350"/>
+-		<variable name="lb_group_l4" value="440"/>
+-		<variable name="lb_group_l5" value="530"/>
+-		<variable name="lb_group_l6" value="620"/>
+-		<variable name="lb_group_l7" value="710"/>
+-		<variable name="lb_group_l8" value="800"/>
+-		<variable name="lb_group_l9" value="890"/>
+-		<variable name="lb_group_l10" value="980"/>
++		<variable name="lb_group_l1" value="116"/>
++		<variable name="lb_group_l2" value="184"/>
++		<variable name="lb_group_l3" value="252"/>
++		<variable name="lb_group_l4" value="320"/>
++		<variable name="lb_group_l5" value="388"/>
++		<variable name="lb_group_l6" value="456"/>
++		<variable name="lb_group_l7" value="524"/>
++		<variable name="lb_group_l8" value="592"/>
++		<variable name="lb_group_l9" value="650"/>
++		<variable name="lb_group_l10" value="680"/>
  
  		<!-- Battery -->
 -		<variable name="battery_12_x" value="880-%status_indent_right%"/>
@@ -300,23 +893,55 @@ index 7dcffc29..29da2c69 100644
  
  		<variable name="battery_y" value="%status_info_y%+6"/>
  		<variable name="battery_2_y" value="%status_info_y%+10"/>
-@@ -402,6 +401,7 @@
- 		<variable name="search_bar_y" value="72+%cutout_w%"/>
- 		<variable name="search_bar_bg_y" value="96+%cutout_w%"/>
- 		<variable name="search_bar_line_y" value="238+%cutout_w%"/>
+@@ -392,73 +389,75 @@
+ 
+ 		<!-- File list -->
+ 		<variable name="fileselector_width" value="%screen_w%"/>
+-		<variable name="fileselector_terminal_height" value="%screen_min_cut%-600"/>
++		<variable name="fileselector_terminal_height" value="%screen_min_cut%-240"/>
+ 		<variable name="fileselector_separatorheight" value="2"/>
+ 		<variable name="fileselector_spacing" value="0"/>
+ 		
+ 		<!-- Title / Title buttons -->
+-		<variable name="search_files_h" value="%screen_min_cut%-722"/>
+-		<variable name="search_files_y" value="360+%cutout_w%"/>
+-		<variable name="search_bar_y" value="72+%cutout_w%"/>
+-		<variable name="search_bar_bg_y" value="96+%cutout_w%"/>
+-		<variable name="search_bar_line_y" value="238+%cutout_w%"/>
+-		<variable name="path_text_y" value="268+%cutout_w%"/>
+-		<variable name="path_y" value="240+%cutout_w%"/>
+-		<variable name="path_arrow_y" value="300+%cutout_w%"/>
+-		<variable name="ab_search_y" value="168+%cutout_w%"/>
+-		<variable name="ab_search_text_y" value="138+%cutout_w%"/>
++		<variable name="search_files_h" value="%screen_min_cut%-280"/>
++		<variable name="search_files_y" value="145"/>
++		<variable name="search_bar_y" value="18"/>
++		<variable name="search_bar_bg_y" value="22"/>
++		<variable name="search_bar_line_y" value="92"/>
 +		<variable name="search_bar_w" value="%screen_w%-96"/>
- 		<variable name="path_text_y" value="268+%cutout_w%"/>
- 		<variable name="path_y" value="240+%cutout_w%"/>
- 		<variable name="path_arrow_y" value="300+%cutout_w%"/>
-@@ -414,11 +414,11 @@
- 		<variable name="ab_y" value="156+%cutout_w%"/>
- 		<variable name="ab2_y" value="324+%cutout_w%"/>
- 		<variable name="ab3_y" value="540+%cutout_w%"/>
++		<variable name="path_text_y" value="112"/>
++		<variable name="path_y" value="105"/>
++		<variable name="path_arrow_y" value="120"/>
++		<variable name="ab_search_y" value="55"/>
++		<variable name="ab_search_text_y" value="48"/>
+ 
+-		<variable name="ab_bc_double_u_y" value="90+%cutout_w%"/>
+-		<variable name="ab_bc_double_d_y" value="158+%cutout_w%"/>
+-		<variable name="ab0_y" value="84+%cutout_w%"/>
+-		<variable name="ab_y" value="156+%cutout_w%"/>
+-		<variable name="ab2_y" value="324+%cutout_w%"/>
+-		<variable name="ab3_y" value="540+%cutout_w%"/>
 -		<variable name="ab_btn1_x" value="996"/>
 -		<variable name="ab_btn2_x" value="852"/>
 -		<variable name="ab_btn3_x" value="708"/>
 -		<variable name="ab_btn01_x" value="468"/>
 -		<variable name="ab_btn02_x" value="612"/>
++		<variable name="ab_bc_double_u_y" value="38"/>
++		<variable name="ab_bc_double_d_y" value="70"/>
++		<variable name="ab0_y" value="38"/>
++		<variable name="ab_y" value="60"/>
++		<variable name="ab2_y" value="160"/>
++		<variable name="ab3_y" value="270"/>
 +		<variable name="ab_btn1_x" value="%screen_w%-84"/>
 +		<variable name="ab_btn2_x" value="%screen_w%-228"/>
 +		<variable name="ab_btn3_x" value="%screen_w%-372"/>
@@ -324,8 +949,25 @@ index 7dcffc29..29da2c69 100644
 +		<variable name="ab_btn02_x" value="%screen_w%-468"/>
  		
  		<variable name="ab_back_x" value="84"/>
- 		<variable name="ab_bc_y" value="115+%cutout_w%"/>
-@@ -434,18 +434,19 @@
+-		<variable name="ab_bc_y" value="115+%cutout_w%"/>
+-		<variable name="ab_bc_fox_y" value="115+%cutout_w%"/>
+-		<variable name="ab_bc_search_y" value="128+%cutout_w%"/>
+-		<variable name="ab_bc2_y" value="282+%cutout_w%"/>
+-		<variable name="ab_bc3_y" value="500+%cutout_w%"/>
+-		<variable name="ab_h" value="240+%cutout_w%"/>
+-		<variable name="ab_ex_h" value="456+%cutout_w%"/>
+-		<variable name="row_ab_ex_y" value="456+%cutout_w%"/>
+-		<variable name="ab_btn_h" value="168"/>
++		<variable name="ab_bc_y" value="48"/>
++		<variable name="ab_bc_fox_y" value="48"/>
++		<variable name="ab_bc_search_y" value="52"/>
++		<variable name="ab_bc2_y" value="140"/>
++		<variable name="ab_bc3_y" value="240"/>
++		<variable name="ab_h" value="105"/>
++		<variable name="ab_ex_h" value="150"/>
++		<variable name="row_ab_ex_y" value="150"/>
++		<variable name="ab_btn_h" value="85"/>
+ 		
  		<variable name="tab_w" value="312"/>
  		<variable name="tab_h" value="8"/>
  
@@ -334,39 +976,332 @@ index 7dcffc29..29da2c69 100644
 +		<variable name="main_switch_icon_x" value="%screen_w%-134"/>
  
  		<!-- Advanced -->
- 		<variable name="adv_additions_h" value="%screen_w%-200"/>
+-		<variable name="adv_additions_h" value="%screen_w%-200"/>
++		<variable name="adv_additions_h" value="%screen_h%-200"/>
  
  		<!-- Sort menu -->
- 		<variable name="ab_menu_y" value="72+%cutout_w%"/>
+-		<variable name="ab_menu_y" value="72+%cutout_w%"/>
 -		<variable name="ab_menu_x" value="972"/>
 -		<variable name="ab_menu_sort_x" value="588"/>
++		<variable name="ab_menu_y" value="25"/>
 +		<variable name="ab_menu_x" value="%screen_w%-108"/>
 +		<variable name="ab_menu_sort_x" value="%screen_w%-492"/>
  		<variable name="ab_menu_sort_btn_w" value="468"/>
- 		<variable name="ab_menu_sort_btn_h" value="144"/>
+-		<variable name="ab_menu_sort_btn_h" value="144"/>
 -		<variable name="ab_menu_sort_text_x" value="638"/>
+-		<variable name="ab_menu_text_offset" value="32"/>
+-		<variable name="ab_menu_btn_1_y" value="121+%cutout_w%"/>
+-		<variable name="ab_menu_btn_2_y" value="265+%cutout_w%"/>
+-		<variable name="ab_menu_btn_3_y" value="409+%cutout_w%"/>
+-		<variable name="ab_menu_btn_4_y" value="603+%cutout_w%"/>
+-		<variable name="ab_menu_btn_5_y" value="747+%cutout_w%"/>
+-		<variable name="ab_menu_btn_6_y" value="891+%cutout_w%"/>
+-		<variable name="ab_menu_inst_1_y" value="193+%cutout_w%"/>
+-		<variable name="ab_menu_inst_2_y" value="337+%cutout_w%"/>
+-		<variable name="ab_menu_inst_3_y" value="481+%cutout_w%"/>
+-		<variable name="ab_menu_inst_4_y" value="675+%cutout_w%"/>
+-		<variable name="ab_menu_inst_5_y" value="819+%cutout_w%"/>
+-		<variable name="ab_menu_inst_6_y" value="963+%cutout_w%"/>
++		<variable name="ab_menu_sort_btn_h" value="85"/>
 +		<variable name="ab_menu_sort_text_x" value="%screen_w%-442"/>
- 		<variable name="ab_menu_text_offset" value="32"/>
- 		<variable name="ab_menu_btn_1_y" value="121+%cutout_w%"/>
- 		<variable name="ab_menu_btn_2_y" value="265+%cutout_w%"/>
-@@ -499,7 +500,7 @@
++		<variable name="ab_menu_text_offset" value="18"/>
++		<variable name="ab_menu_btn_1_y" value="55"/>
++		<variable name="ab_menu_btn_2_y" value="140"/>
++		<variable name="ab_menu_btn_3_y" value="225"/>
++		<variable name="ab_menu_btn_4_y" value="335"/>
++		<variable name="ab_menu_btn_5_y" value="420"/>
++		<variable name="ab_menu_btn_6_y" value="505"/>
++		<variable name="ab_menu_inst_1_y" value="90"/>
++		<variable name="ab_menu_inst_2_y" value="175"/>
++		<variable name="ab_menu_inst_3_y" value="260"/>
++		<variable name="ab_menu_inst_4_y" value="370"/>
++		<variable name="ab_menu_inst_5_y" value="455"/>
++		<variable name="ab_menu_inst_6_y" value="540"/>
+ 		<variable name="ab_menu_inst_1_text_y" value="%ab_menu_inst_1_y%-%ab_menu_text_offset%"/>
+ 		<variable name="ab_menu_inst_2_text_y" value="%ab_menu_inst_2_y%-%ab_menu_text_offset%"/>
+ 		<variable name="ab_menu_inst_3_text_y" value="%ab_menu_inst_3_y%-%ab_menu_text_offset%"/>
+@@ -467,85 +466,85 @@
+ 		<variable name="ab_menu_inst_6_text_y" value="%ab_menu_inst_6_y%-%ab_menu_text_offset%"/>
+ 		
+ 		<!-- Bottom Warning -->
+-		<variable name="row_warn_y" value="%screen_h%-380"/>
+-		<variable name="row_warn2_y" value="%screen_h%-300"/>
++		<variable name="row_warn_y" value="%screen_h%-250"/>
++		<variable name="row_warn2_y" value="%screen_h%-200"/>
+ 
+ 		<!-- Bottom buttons -->
+-		<variable name="row_btn_bottom_y" value="%screen_h%-156"/>
+-		<variable name="row_btn_y" value="%screen_h%-450"/>
+-		<variable name="row_btn1_y" value="%screen_h%-300"/>
+-		<variable name="row_btn2_y" value="%screen_h%-579"/>
+-		<variable name="row_btn3_y" value="%screen_h%-729"/>
++		<variable name="row_btn_bottom_y" value="%screen_h%-100"/>
++		<variable name="row_btn_y" value="%screen_h%-190"/>
++		<variable name="row_btn1_y" value="%screen_h%-105"/>
++		<variable name="row_btn2_y" value="%screen_h%-210"/>
++		<variable name="row_btn3_y" value="%screen_h%-285"/>
+ 		<variable name="btn_raised_left_x" value="48"/>
+-		<variable name="btn_raised_right_x" value="1032"/>
++		<variable name="btn_raised_right_x" value="%screen_w%-48"/>
+ 		<variable name="btn_w" value="471"/>
+ 		<variable name="btn_half_w" value="207"/>
+-		<variable name="btn_h" value="108"/>
++		<variable name="btn_h" value="76"/>
+ 		
+ 		<!-- Progress -->
+ 		<variable name="progressbar_x" value="0"/>
+-		<variable name="progressbar_y" value="456+%cutout_w%"/>
++		<variable name="progressbar_y" value="150"/>
+ 		
+ 		<!-- Keyboard -->
+-		<variable name="keyboard_y" value="%screen_h%-788"/>
+-		<variable name="keyboard_terminal_y" value="%screen_h%-884"/>
+-		<variable name="keyboard_num_y" value="%screen_h%-900"/>
+-		<variable name="keyboard_term_num_y" value="%screen_h%-992"/>
++		<variable name="keyboard_y" value="%screen_h%-480"/>
++		<variable name="keyboard_terminal_y" value="%screen_h%-550"/>
++		<variable name="keyboard_num_y" value="%screen_h%-560"/>
++		<variable name="keyboard_term_num_y" value="%screen_h%-620"/>
+ 		
+ 		<!-- Input fields -->
+ 		<variable name="input_encr_width" value="696"/>
+-		<variable name="input_height" value="60"/>
++		<variable name="input_height" value="48"/>
+ 		<variable name="input_line_height" value="3"/>
  		<variable name="input_cursor_width" value="2"/>
  		
  		<!-- Terminal / Console -->
 -		<variable name="console_width" value="984"/>
-+		<variable name="console_width" value="%screen_w%-96"/>
- 		<variable name="console_height" value="%screen_min_cut%-475"/>
- 		<variable name="console_action_height" value="%screen_min_cut%-852"/>
- 		<variable name="console_fastboot_height" value="%screen_min_cut%-492"/>
-@@ -509,7 +510,7 @@
- 		<variable name="console_y" value="504+%cutout_w%"/>
- 		<variable name="console_ab_y" value="288+%cutout_w%"/>
- 		<variable name="terminal_y" value="90+%cutout_w%"/>
+-		<variable name="console_height" value="%screen_min_cut%-475"/>
+-		<variable name="console_action_height" value="%screen_min_cut%-852"/>
+-		<variable name="console_fastboot_height" value="%screen_min_cut%-492"/>
+-		<variable name="prep" value="%screen_original_h%-%cutout_w%"/>
+-		<variable name="console_action_height_big" value="%prep%-552"/>
+-		<variable name="console_action_height_fm" value="%screen_min_cut%-696"/>
+-		<variable name="console_y" value="504+%cutout_w%"/>
+-		<variable name="console_ab_y" value="288+%cutout_w%"/>
+-		<variable name="terminal_y" value="90+%cutout_w%"/>
 -		<variable name="terminal_width" value="1032"/>
+-		<variable name="terminal_height" value="%screen_min_cut%-1020"/>
+-		<variable name="terminal_num_height" value="%screen_min_cut%-1132"/>
+-		<variable name="terminal_nokb_height" value="%screen_min_cut%-270"/>
+-		<variable name="console_brightness_y" value="%screen_h%-325"/>
+-		<variable name="console_flash_y" value="%screen_h%-228"/>
++		<variable name="console_width" value="%screen_w%-96"/>
++		<variable name="console_height" value="%screen_min_cut%-200"/>
++		<variable name="console_action_height" value="%screen_min_cut%-360"/>
++		<variable name="console_fastboot_height" value="%screen_min_cut%-280"/>
++		<variable name="prep" value="%screen_original_h%"/>
++		<variable name="console_action_height_big" value="%prep%-240"/>
++		<variable name="console_action_height_fm" value="%screen_min_cut%-280"/>
++		<variable name="console_y" value="180"/>
++		<variable name="console_ab_y" value="130"/>
++		<variable name="terminal_y" value="55"/>
 +		<variable name="terminal_width" value="%screen_w%-48"/>
- 		<variable name="terminal_height" value="%screen_min_cut%-1020"/>
- 		<variable name="terminal_num_height" value="%screen_min_cut%-1132"/>
- 		<variable name="terminal_nokb_height" value="%screen_min_cut%-270"/>
++		<variable name="terminal_height" value="%screen_min_cut%-480"/>
++		<variable name="terminal_num_height" value="%screen_min_cut%-540"/>
++		<variable name="terminal_nokb_height" value="%screen_min_cut%-140"/>
++		<variable name="console_brightness_y" value="%screen_h%-190"/>
++		<variable name="console_flash_y" value="%screen_h%-140"/>
+ 		
+ 		<!-- Dialogs -->
+ 		<variable name="dialog_w" value="840"/>
+-		<variable name="db_left_x" value="380"/>
+-		<variable name="db_right_x" value="644"/>
+-		<variable name="db_y" value="1129"/>
+-		<variable name="db_encrypt_y" value="839"/>
+-		<variable name="db_text1_y" value="832"/>
+-		<variable name="db_text2_y" value="892"/>
+-		<variable name="db_text2a_y" value="922"/>
+-		<variable name="db_text3_y" value="952"/>
+-		<variable name="db_text4_y" value="1012"/>
+-		<variable name="db_text3a_y" value="982"/>
+-		<variable name="db_checkbox_y" value="1012"/>
++		<variable name="db_left_x" value="1100"/>
++		<variable name="db_right_x" value="1380"/>
++		<variable name="db_y" value="660"/>
++		<variable name="db_encrypt_y" value="460"/>
++		<variable name="db_text1_y" value="400"/>
++		<variable name="db_text2_y" value="440"/>
++		<variable name="db_text2a_y" value="460"/>
++		<variable name="db_text3_y" value="480"/>
++		<variable name="db_text4_y" value="520"/>
++		<variable name="db_text3a_y" value="500"/>
++		<variable name="db_checkbox_y" value="540"/>
+ 		<variable name="storage_width" value="764"/>
+ 		<variable name="storage_height" value="274"/>
+ 		<variable name="storage_indent_x" value="120"/>
+-		<variable name="storage_indent_y" value="832"/>
+-		<variable name="bg_storage_x" value="36"/>
+-		<variable name="bg_storage_y" value="592"/>
+-		<variable name="bg_storage_hdr_x" value="192"/>
+-		<variable name="bg_storage_hdr_y" value="706"/>
+-		<variable name="bg_encrypt_y" value="302"/>
+-		<variable name="bg_encrypt_hdr_y" value="416"/>
++		<variable name="storage_indent_y" value="400"/>
++		<variable name="bg_storage_x" value="780"/>
++		<variable name="bg_storage_y" value="280"/>
++		<variable name="bg_storage_hdr_x" value="840"/>
++		<variable name="bg_storage_hdr_y" value="330"/>
++		<variable name="bg_encrypt_y" value="180"/>
++		<variable name="bg_encrypt_hdr_y" value="240"/>
+ 		<variable name="snackbar_text_x" value="72"/>
+-		<variable name="snackbar_text_y" value="%screen_h%-268"/>
+-		<variable name="snackbar_button_x" value="776"/>
+-		<variable name="snackbar_button_2_x" value="512"/>
+-		<variable name="snackbar_button_y" value="%screen_h%-294"/>
+-		<variable name="dlg_input_cap" value="570"/>
+-		<variable name="dlg_input_line" value="690"/>
++		<variable name="snackbar_text_y" value="%screen_h%-160"/>
++		<variable name="snackbar_button_x" value="%screen_w%-200"/>
++		<variable name="snackbar_button_2_x" value="%screen_w%-400"/>
++		<variable name="snackbar_button_y" value="%screen_h%-180"/>
++		<variable name="dlg_input_cap" value="330"/>
++		<variable name="dlg_input_line" value="390"/>
+ 		
+ 		<!-- Fast scroll -->
+ 		<variable name="fastscroll_w" value="16"/>
+@@ -555,14 +554,14 @@
+ 		
+ 		<!-- Sliders -->
+ 		<variable name="slider_x" value="88"/>
+-		<variable name="slider_y" value="%screen_h%-320"/>
+-		<variable name="slider_text_y" value="%screen_h%-425"/>
+-		<variable name="slidervalue_w" value="984"/>
++		<variable name="slider_y" value="%screen_h%-90"/>
++		<variable name="slider_text_y" value="%screen_h%-150"/>
++		<variable name="slidervalue_w" value="%screen_w%-176"/>
+ 		<variable name="slidervalue_lineh" value="6"/>
+ 		<variable name="slidervalue_padding" value="0"/>
+-		<variable name="slidervalue_sliderw" value="96"/>
+-		<variable name="slidervalue_sliderh" value="96"/>
+-		<variable name="slider_y_l" value="%screen_original_h%-176"/>
++		<variable name="slidervalue_sliderw" value="68"/>
++		<variable name="slidervalue_sliderh" value="68"/>
++		<variable name="slider_y_l" value="%screen_original_h%-115"/>
+ 
+ 		<variable name="unlock_gest_y" value="%screen_original_h%-48"/>
+ 		
+@@ -582,65 +581,65 @@
+ 		<variable name="highlight" value="%accent%"/>
+ 		
+ 		<!-- Centered title with icon (for decryption and setup wizard) -->
+-		<variable name="centered_title_1" value="222+%cutout_w%"/>
+-		<variable name="centered_title_2" value="312+%cutout_w%"/>
++		<variable name="centered_title_1" value="130"/>
++		<variable name="centered_title_2" value="190"/>
+ 		
+ 		<!-- Gesture -->
+ 		<variable name="gst_keyboard_y" value="%keyboard_y%-%ab_h%"/>
+-		<variable name="gst_line_y" value="%screen_h%-123"/>
++		<variable name="gst_line_y" value="%screen_h%-75"/>
+ 		
+ 		<!-- Rows -->
+-		<variable name="row0_y" value="240+%cutout_w%"/>
+-		<variable name="row0_a_y" value="270+%cutout_w%"/>
+-		<variable name="row1_1_y" value="300+%cutout_w%"/>
+-		<variable name="row1_1a_y" value="330+%cutout_w%"/>
+-		<variable name="row1_2_y" value="360+%cutout_w%"/>
+-		<variable name="row1_2a_y" value="390+%cutout_w%"/>
+-		<variable name="row1_3_y" value="420+%cutout_w%"/>
+-		<variable name="row1_3a_y" value="450+%cutout_w%"/>
+-		<variable name="row2_1_y" value="480+%cutout_w%"/>
+-		<variable name="row2_1a_y" value="510+%cutout_w%"/>
+-		<variable name="row2_2_y" value="540+%cutout_w%"/>
+-		<variable name="row2_2a_y" value="570+%cutout_w%"/>
+-		<variable name="row2_3_y" value="600+%cutout_w%"/>
+-		<variable name="row2_3a_y" value="630+%cutout_w%"/>
+-		<variable name="row3_1_y" value="660+%cutout_w%"/>
+-		<variable name="row3_1a_y" value="690+%cutout_w%"/>
+-		<variable name="row3_2_y" value="720+%cutout_w%"/>
+-		<variable name="row3_2a_y" value="750+%cutout_w%"/>
+-		<variable name="row3_3_y" value="780+%cutout_w%"/>
+-		<variable name="row3_3a_y" value="810+%cutout_w%"/>
+-		<variable name="row4_1_y" value="840+%cutout_w%"/>
+-		<variable name="row4_1a_y" value="870+%cutout_w%"/>
+-		<variable name="row4_2_y" value="900+%cutout_w%"/>
+-		<variable name="row4_2a_y" value="930+%cutout_w%"/>
+-		<variable name="row4_3_y" value="960+%cutout_w%"/>
+-		<variable name="row4_3a_y" value="990+%cutout_w%"/>
+-		<variable name="row5_1_y" value="1020+%cutout_w%"/>
+-		<variable name="row5_1a_y" value="1050+%cutout_w%"/>
+-		<variable name="row5_2_y" value="1080+%cutout_w%"/>
+-		<variable name="row5_2a_y" value="1110+%cutout_w%"/>
+-		<variable name="row5_3_y" value="1140+%cutout_w%"/>
+-		<variable name="row5_3a_y" value="1170+%cutout_w%"/>
+-		<variable name="row6_1_y" value="1200+%cutout_w%"/>
+-		<variable name="row6_1a_y" value="1230+%cutout_w%"/>
+-		<variable name="row6_2_y" value="1260+%cutout_w%"/>
+-		<variable name="row6_2a_y" value="1290+%cutout_w%"/>
+-		<variable name="row6_3_y" value="1320+%cutout_w%"/>
+-		<variable name="row6_3a_y" value="1350+%cutout_w%"/>
+-		<variable name="row7_1_y" value="1380+%cutout_w%"/>
+-		<variable name="row7_1a_y" value="1410+%cutout_w%"/>
+-		<variable name="row7_2_y" value="1440+%cutout_w%"/>
+-		<variable name="row7_2a_y" value="1470+%cutout_w%"/>
+-		<variable name="row7_3_y" value="1500+%cutout_w%"/>
+-		<variable name="row7_3a_y" value="1530+%cutout_w%"/>
+-		<variable name="row8_1_y" value="1560+%cutout_w%"/>
+-		<variable name="row8_1a_y" value="1590+%cutout_w%"/>
+-		<variable name="row8_2_y" value="1620+%cutout_w%"/>
+-		<variable name="row8_2a_y" value="1650+%cutout_w%"/>
+-		<variable name="row8_3_y" value="1680+%cutout_w%"/>
+-		<variable name="row8_3a_y" value="1710+%cutout_w%"/>
+-		<variable name="row9_1_y" value="1740+%cutout_w%"/>
++		<variable name="row0_y" value="115"/>
++		<variable name="row0_a_y" value="130"/>
++		<variable name="row1_1_y" value="145"/>
++		<variable name="row1_1a_y" value="160"/>
++		<variable name="row1_2_y" value="175"/>
++		<variable name="row1_2a_y" value="190"/>
++		<variable name="row1_3_y" value="205"/>
++		<variable name="row1_3a_y" value="220"/>
++		<variable name="row2_1_y" value="235"/>
++		<variable name="row2_1a_y" value="250"/>
++		<variable name="row2_2_y" value="265"/>
++		<variable name="row2_2a_y" value="280"/>
++		<variable name="row2_3_y" value="295"/>
++		<variable name="row2_3a_y" value="310"/>
++		<variable name="row3_1_y" value="325"/>
++		<variable name="row3_1a_y" value="340"/>
++		<variable name="row3_2_y" value="355"/>
++		<variable name="row3_2a_y" value="370"/>
++		<variable name="row3_3_y" value="385"/>
++		<variable name="row3_3a_y" value="400"/>
++		<variable name="row4_1_y" value="420"/>
++		<variable name="row4_1a_y" value="440"/>
++		<variable name="row4_2_y" value="460"/>
++		<variable name="row4_2a_y" value="480"/>
++		<variable name="row4_3_y" value="500"/>
++		<variable name="row4_3a_y" value="520"/>
++		<variable name="row5_1_y" value="540"/>
++		<variable name="row5_1a_y" value="560"/>
++		<variable name="row5_2_y" value="580"/>
++		<variable name="row5_2a_y" value="600"/>
++		<variable name="row5_3_y" value="620"/>
++		<variable name="row5_3a_y" value="640"/>
++		<variable name="row6_1_y" value="660"/>
++		<variable name="row6_1a_y" value="680"/>
++		<variable name="row6_2_y" value="700"/>
++		<variable name="row6_2a_y" value="720"/>
++		<variable name="row6_3_y" value="740"/>
++		<variable name="row6_3a_y" value="760"/>
++		<variable name="row7_1_y" value="780"/>
++		<variable name="row7_1a_y" value="800"/>
++		<variable name="row7_2_y" value="820"/>
++		<variable name="row7_2a_y" value="840"/>
++		<variable name="row7_3_y" value="860"/>
++		<variable name="row7_3a_y" value="880"/>
++		<variable name="row8_1_y" value="900"/>
++		<variable name="row8_1a_y" value="920"/>
++		<variable name="row8_2_y" value="940"/>
++		<variable name="row8_2a_y" value="960"/>
++		<variable name="row8_3_y" value="980"/>
++		<variable name="row8_3a_y" value="1000"/>
++		<variable name="row9_1_y" value="1020"/>
+ 		
+ 		<!-- Group list -->
+ 		<variable name="gl_text_x" value="60"/>
 diff --git a/gui/theme/portrait_hdpi/splash.xml b/gui/theme/portrait_hdpi/splash.xml
 index 788d80a3..76b06eb5 100644
 --- a/gui/theme/portrait_hdpi/splash.xml
@@ -391,6 +1326,96 @@ index 788d80a3..76b06eb5 100644
  		<variable name="header_color" value="#000000"/>
  		<variable name="background_color" value="#000000"/>
  	</variables>
+diff --git a/gui/theme/portrait_hdpi/themes/font.xml b/gui/theme/portrait_hdpi/themes/font.xml
+index eb9ca2bf..14e579c2 100644
+--- a/gui/theme/portrait_hdpi/themes/font.xml
++++ b/gui/theme/portrait_hdpi/themes/font.xml
+@@ -1,42 +1,42 @@
+-<?xml version="1.0"?>
+-<recovery>
+-	<resources>
+-		<font name="status" filename="GoogleSans-Medium.ttf" size="40"/>
+-		<font name="bigfont" filename="Roboto-Medium.ttf" size="48"/>
+-		<font name="body1" filename="Roboto-Regular.ttf" size="42"/>
+-		<font name="body2" filename="Roboto-Medium.ttf" size="42"/>
+-		<font name="subhead" filename="Roboto-Regular.ttf" size="52"/>
+-		<font name="title" filename="Roboto-Medium.ttf" size="60"/>
+-		<font name="mainbutton" filename="Roboto-Regular.ttf" size="64"/>
+-		<font name="button" filename="Roboto-Medium.ttf" size="41"/>
+-		<font name="menu" filename="Roboto-Medium.ttf" size="44"/>
+-		<font name="input_fail" filename="Roboto-Medium.ttf" size="32"/>
+-		<font name="splash" filename="Roboto-Medium.ttf" size="47"/>
+-
+-		<font name="font_l" filename="Roboto-Medium.ttf" size="52"/>
+-		<font name="font_m" filename="Roboto-Medium.ttf" size="42"/>
+-		<font name="font_s" filename="Roboto-Medium.ttf" size="36"/>
+-		<font name="font_b" filename="Roboto-Medium.ttf" size="200"/>
+-
+-		<font name="keylabel" filename="Roboto-Regular.ttf" size="64"/>
+-		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="46"/>
+-		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="72"/>
+-		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="46"/>
+-		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="32"/>
+-		
+-		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="42"/>
+-		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="36"/>
+-		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="58"/>
+-		<font name="caption" filename="GoogleSans-Medium.ttf" size="36"/>
+-		
+-		<font name="clock" filename="GoogleSans-Regular.ttf" size="210"/>
+-		<font name="info" filename="GoogleSans-Medium.ttf" size="50"/>
+-	</resources>
+-	
+-	<variables>
+-		<variable name="theme_font" value="InterDisplay"/>
+-		<variable name="theme_sec_font" value="InterDisplay"/>
+-		<variable name="theme_font_size" value="n"/>
+-		<variable name="theme_font_weight" value="2"/>
+-	</variables>
+-</recovery>
+\ No newline at end of file
++<?xml version="1.0"?>
++<recovery>
++	<resources>
++		<font name="status" filename="GoogleSans-Medium.ttf" size="28"/>
++		<font name="bigfont" filename="Roboto-Medium.ttf" size="36"/>
++		<font name="body1" filename="Roboto-Regular.ttf" size="30"/>
++		<font name="body2" filename="Roboto-Medium.ttf" size="30"/>
++		<font name="subhead" filename="Roboto-Regular.ttf" size="36"/>
++		<font name="title" filename="Roboto-Medium.ttf" size="42"/>
++		<font name="mainbutton" filename="Roboto-Regular.ttf" size="44"/>
++		<font name="button" filename="Roboto-Medium.ttf" size="30"/>
++		<font name="menu" filename="Roboto-Medium.ttf" size="32"/>
++		<font name="input_fail" filename="Roboto-Medium.ttf" size="26"/>
++		<font name="splash" filename="Roboto-Medium.ttf" size="38"/>
++
++		<font name="font_l" filename="Roboto-Medium.ttf" size="38"/>
++		<font name="font_m" filename="Roboto-Medium.ttf" size="30"/>
++		<font name="font_s" filename="Roboto-Medium.ttf" size="26"/>
++		<font name="font_b" filename="Roboto-Medium.ttf" size="140"/>
++
++		<font name="keylabel" filename="Roboto-Regular.ttf" size="44"/>
++		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="34"/>
++		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="50"/>
++		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="30"/>
++		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="24"/>
++		
++		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="30"/>
++		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="26"/>
++		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="40"/>
++		<font name="caption" filename="GoogleSans-Medium.ttf" size="26"/>
++		
++		<font name="clock" filename="GoogleSans-Regular.ttf" size="140"/>
++		<font name="info" filename="GoogleSans-Medium.ttf" size="36"/>
++	</resources>
++	
++	<variables>
++		<variable name="theme_font" value="InterDisplay"/>
++		<variable name="theme_sec_font" value="InterDisplay"/>
++		<variable name="theme_font_size" value="n"/>
++		<variable name="theme_font_weight" value="2"/>
++	</variables>
++</recovery>
 diff --git a/gui/theme/portrait_hdpi/ui.xml b/gui/theme/portrait_hdpi/ui.xml
 index 99eed886..7cff9b5e 100644
 --- a/gui/theme/portrait_hdpi/ui.xml
