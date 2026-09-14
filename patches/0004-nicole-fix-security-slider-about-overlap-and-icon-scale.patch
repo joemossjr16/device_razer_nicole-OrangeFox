@@ -1,0 +1,3428 @@
+From de593645db4a082d8987c6956d29fbe4714caef9 Mon Sep 17 00:00:00 2001
+From: joemossjr16 <joemossjr16@users.noreply.github.com>
+Date: Mon, 14 Sep 2026 16:00:33 -0500
+Subject: [PATCH] nicole: fix security/slider/about overlap, resize fox_lock
+ icon, keyboard/splash/file-header spacing
+
+---
+ gui/blanktimer.cpp                            |   3 +
+ gui/gui.cpp                                   |  13 +-
+ gui/listbox.cpp                               |   3 +
+ gui/scrolllist.cpp                            |  11 +-
+ .../Default/FullscreenIcons/fox_lock.png      | Bin 17467 -> 15624 bytes
+ gui/theme/portrait_hdpi/pages/advanced.xml    |  12 +-
+ gui/theme/portrait_hdpi/pages/anywhere.xml    |  67 ++--
+ .../portrait_hdpi/pages/customization.xml     | 309 ++++++++++--------
+ gui/theme/portrait_hdpi/pages/files.xml       |  24 +-
+ gui/theme/portrait_hdpi/pages/restore.xml     |  12 +-
+ gui/theme/portrait_hdpi/pages/settings.xml    | 241 +++++++-------
+ .../pages/templates/keyboard.xml              |  66 ++--
+ gui/theme/portrait_hdpi/resources/images.xml  |   2 +-
+ gui/theme/portrait_hdpi/resources/styles.xml  |  18 +-
+ gui/theme/portrait_hdpi/resources/vars.xml    | 300 +++++++++--------
+ gui/theme/portrait_hdpi/splash.xml            |  14 +-
+ gui/theme/portrait_hdpi/themes/font.xml       |  52 +--
+ gui/theme/portrait_hdpi/themes/sed/font_b.xml |  54 +--
+ gui/theme/portrait_hdpi/themes/sed/font_n.xml |  54 +--
+ gui/theme/portrait_hdpi/themes/sed/font_s.xml |  54 +--
+ gui/theme/portrait_hdpi/themes/sed/splash.xml |  14 +-
+ openrecoveryscript.cpp                        |  10 +
+ orscmd/orscmd.cpp                             |   3 +
+ 23 files changed, 730 insertions(+), 606 deletions(-)
+
+diff --git a/gui/blanktimer.cpp b/gui/blanktimer.cpp
+index 9d2a5ed7..d1c72222 100755
+--- a/gui/blanktimer.cpp
++++ b/gui/blanktimer.cpp
+@@ -145,10 +145,13 @@ void blanktimer::blank(void) {
+ }
+ 
+ void blanktimer::toggleBlank(void) {
++#ifndef TW_NO_SCREEN_TIMEOUT
+ 	if (state == kOn) {
+ 		blank();
+ 		PageManager::ChangeOverlay("lock");
+ 	} else {
+ 		resetTimerAndUnblank();
+ 	}
++#endif
+ }
++
+diff --git a/gui/gui.cpp b/gui/gui.cpp
+index 71bbc967..75008a5f 100644
+--- a/gui/gui.cpp
++++ b/gui/gui.cpp
+@@ -293,7 +293,7 @@ void InputHandler::processHoldAndRepeat()
+ 		} else if (kb->AreKeysPressed(KEY_VOLUMEDOWN, KEY_POWER)) {
+ 			GUIAction::screenshotImpl("");
+ 			DataManager::Vibrate("tw_button_vibrate");
+-			g_suppress_power_toggle_until_ms = nowMs() + 1000; // prevent screen-off from power key after screenshot
++			g_suppress_power_toggle_until_ms = nowMs() + 5000; // prevent screen-off from power key after screenshot
+ 		} else if (kb->IsKeyDown(KEY_POWER) && DataManager::GetStrValue("of_hw_control_mode") == "1") {
+ 			PageManager::SelectFocusedElement(true);
+ 		} else {
+@@ -584,6 +584,17 @@ static void ors_command_read()
+ 				char* pg = &command[11];
+ 				gui_changePage(pg);
+ 				ors_command_done();
++			} else if (strlen(command) >= 10 && strncmp(command, "screenshot", 10) == 0) {
++				GUIAction::screenshotImpl("");
++				ors_command_done();
++			} else if (strlen(command) > 5 && strncmp(command, "page ", 5) == 0) {
++				char* pg = &command[5];
++				gui_changePage(pg);
++				ors_command_done();
++			} else if (strlen(command) > 8 && strncmp(command, "overlay ", 8) == 0) {
++				char* ov = &command[8];
++				PageManager::ChangeOverlay(ov);
++				ors_command_done();
+ 			} else if (strlen(command) > 5 && strncmp(command, "xset ", 5) == 0) {
+ 				char* xsetcom = &command[5];
+ 				std::string setst = string(xsetcom);
+diff --git a/gui/listbox.cpp b/gui/listbox.cpp
+index 426810be..4e88471f 100644
+--- a/gui/listbox.cpp
++++ b/gui/listbox.cpp
+@@ -177,6 +177,9 @@ GUIListBox::GUIListBox(xml_node<>* node) : GUIScrollList(node)
+ 		if (exicon) {
+ 			item.icon = LoadAttrImage(exicon, "res");
+ 			item.hasicon = true;
++			if (item.icon && item.icon->GetResource()) {
++				SetMaxIconSize(item.icon->GetWidth(), item.icon->GetHeight());
++			}
+ 		} else {
+ 			item.hasicon = false;
+ 		}
+diff --git a/gui/scrolllist.cpp b/gui/scrolllist.cpp
+index 54b0792c..5527beab 100755
+--- a/gui/scrolllist.cpp
++++ b/gui/scrolllist.cpp
+@@ -490,6 +490,8 @@ void GUIScrollList::RenderStdItem(int yPos, bool selected, ImageResource* icon,
+ 	if (icon && icon->GetResource()) {
+ 		int iconH = icon->GetHeight();
+ 		int iconW = icon->GetWidth();
++		if (iconH > iconAndTextH)
++			iconH = iconAndTextH;
+ 		int iconY = yPos + (iconAndTextH - iconH) / 2;
+ 		int iconX = (groupStatus > 0 ? mRenderX + groupOffset : mRenderX) + (maxIconWidth - iconW) / 2 - mPadding; //[f/d] right icon padding
+ 		gr_blit(icon->GetResource(), 0, 0, iconW, iconH, iconX, iconY);
+@@ -497,20 +499,21 @@ void GUIScrollList::RenderStdItem(int yPos, bool selected, ImageResource* icon,
+ 
+ 	// render label text
+ 	if (mFont && mFont->GetResource()) {
+-		int textX = mRenderX + maxIconWidth + 5;
++		int textX = (groupStatus > 0 ? mRenderX + groupOffset : mRenderX) + maxIconWidth + 15;
++		int maxW = mRenderW - (textX - mRenderX) - (groupStatus > 0 ? groupOffset : 0);
+ 		if (addtext != NULL) { //[f/d] draw 2 lines
+ 			int textY = yPos + (iconAndTextH / 2) - scale_theme_y(34);
+ 			int textYt = yPos + (iconAndTextH / 2) + scale_theme_y(24);
+-			gr_textEx_scaleW(textX, textY, text, mFont->GetResource(), mRenderW, TEXT_ONLY_RIGHT, 0);
++			gr_textEx_scaleW(textX, textY, text, mFont->GetResource(), maxW, TEXT_ONLY_RIGHT, 0);
+ 
+ 			COLOR addtext_color = {0, 0, 0, 0};
+ 			ConvertStrToColor(DataManager::GetStrValue("text_secondary"), &addtext_color);
+ 
+ 			gr_color(addtext_color.red, addtext_color.green, addtext_color.blue, addtext_color.alpha); //[f/d] i'm lazy af so use #5F6368 color and don't allow set it using xml ಠ_ಠ
+-			gr_textEx_scaleW(textX, textYt, addtext, mFont->GetResource(), mRenderW, TEXT_ONLY_RIGHT, 0);
++			gr_textEx_scaleW(textX, textYt, addtext, mFont->GetResource(), maxW, TEXT_ONLY_RIGHT, 0);
+ 		} else { //1 line
+ 			int textY = yPos + (iconAndTextH / 2);
+-			gr_textEx_scaleW(textX, textY, text, mFont->GetResource(), mRenderW, TEXT_ONLY_RIGHT, 0);
++			gr_textEx_scaleW(textX, textY, text, mFont->GetResource(), maxW, TEXT_ONLY_RIGHT, 0);
+ 		}
+ 	}
+ }
+diff --git a/gui/theme/portrait_hdpi/images/Default/FullscreenIcons/fox_lock.png b/gui/theme/portrait_hdpi/images/Default/FullscreenIcons/fox_lock.png
+index 5ed8f82ab419b0726f582d70469f6c0402ba5afc..4609f5dbbdc06e00233ffeea021f9aa1e6bef25c 100644
+GIT binary patch
+literal 15624
+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
+
+literal 17467
+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
+Vqgh6xY+V2V002ovPDHLkV1ig>?63d;
+
+diff --git a/gui/theme/portrait_hdpi/pages/advanced.xml b/gui/theme/portrait_hdpi/pages/advanced.xml
+index e962a0fd..e25d1e8f 100644
+--- a/gui/theme/portrait_hdpi/pages/advanced.xml
++++ b/gui/theme/portrait_hdpi/pages/advanced.xml
+@@ -36,12 +36,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="520"/>
++				<placement x="%gl_text_x%" y="%row3_1a_y%"/>
+ 				<text>{@listbox_group_additions}</text>
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="550" w="%screen_w%" h="%bl_h4%"/>
++				<placement x="0" y="%row3_2a_y%" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@reflash_twrp}">
+ 					<icon res="wrench"/>
+ 					<condition var1="fox_branch" op="&gt;=" var2="11"/>
+@@ -435,12 +435,12 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row3_1a_y%"/>
++				<placement x="%gl_text_x%" y="370"/>
+ 				<text>{@cust_oth}</text>
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row3_2a_y%" w="%screen_w%" h="%bl_h4%"/>
++				<placement x="0" y="415" w="%screen_w%" h="%bl_h4%"/>
+ 				<listitem name="{@module_of_set}">
+ 					<condition var1="fileexists" var2="/FFiles/OF_backup_settings/OF_backup_settings.zip"/>
+ 					<icon res="archive"/>
+@@ -544,14 +544,14 @@
+             <text style="caption">
+                 <condition var1="fox_vab_device" var2="1"/>
+                 <condition var1="fox_support_ksu" var2="1"/>
+-                <placement x="%gl_text_x%" y="590"/>
++                <placement x="%gl_text_x%" y="770"/>
+                 <text>Other root: needs supported kernel</text>
+             </text>
+ 
+             <listbox style="btn_list">
+                 <condition var1="fox_vab_device" var2="1"/>
+                 <condition var1="fox_support_ksu" var2="1"/>
+-                <placement x="0" y="620" w="%screen_w%" h="%bl_h4%"/>
++                <placement x="0" y="815" w="%screen_w%" h="%bl_h2%"/>
+ 
+                 <listitem name="{@module_install} KernelSU %ksu_ver%">
+                     <condition var1="fileexists" var2="/FFiles/KernelSU/KernelSU_Installer.zip"/>
+diff --git a/gui/theme/portrait_hdpi/pages/anywhere.xml b/gui/theme/portrait_hdpi/pages/anywhere.xml
+index eb939954..500b1f0f 100644
+--- a/gui/theme/portrait_hdpi/pages/anywhere.xml
++++ b/gui/theme/portrait_hdpi/pages/anywhere.xml
+@@ -1,58 +1,55 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<pages>
+-		<page name="lock">
++				<page name="lock">
+ 			<background color="%background%"/>
+ 			<template name="status_bg"/>
+ 			<template name="statusbarinfo"/>
+ 			<template name="keys"/>
+ 
+-			<button>
+-				<condition var1="lock_action" var2="1"/>
+-				<condition var1="clock_style" var2="0"/>
+-				<image resource="unlock_icon"/>
+-				<placement x="%center_x%" y="%center_y%" placement="4"/>
+-				<action function="togglebacklight"/>
+-			</button>
+-
+-			<image>
+-				<condition var1="lock_action" var2="0"/>
+-				<condition var1="clock_style" var2="0"/>
+-				<image resource="unlock_icon"/>
+-				<placement x="%center_x%" y="%center_y%" placement="4"/>
+-			</image>
+-
+ 			<text color="%text%">
+-				<condition var1="clock_style" var2="1"/>
+ 				<font resource="clock"/>
+-				<placement x="%center_x%" y="%row2_2_y%" placement="4"/>
++				<placement x="%center_x%" y="280" placement="4"/>
+ 				<text>%tw_time%</text>
+ 			</text>
+ 
+ 			<text color="%text%">
+-				<condition var1="clock_style" var2="1"/>
+-				<font resource="clock_s"/>
+-				<placement x="%center_x%" y="%row2_3_y%" placement="4"/>
++				<font resource="subhead"/>
++				<placement x="%center_x%" y="400" placement="4"/>
+ 				<text>%fox_date%</text>
+ 			</text>
+ 
+-			<text color="%text_black%">
+-				<condition var1="clock_style" var2="0"/>
+-				<font resource="clock"/>
+-				<placement x="%center_x%" y="%row2_2_y%" placement="4"/>
+-				<text>%tw_time%</text>
+-			</text>
++			<button style="btn_raised">
++				<placement x="%center_x%" y="580" placement="4"/>
++				<text>{@unlock_btn=Tap to unlock}</text>
++				<action function="overlay"/>
++			</button>
+ 
+-			<text color="%text_black%">
+-				<condition var1="clock_style" var2="0"/>
+-				<font resource="clock_s"/>
+-				<placement x="%center_x%" y="%row2_3_y%" placement="4"/>
+-				<text>%fox_date%</text>
+-			</text>
++			<!-- Fullscreen transparent button ensures any touch anywhere unlocks -->
++			<button>
++				<fill color="#00000000"/>
++				<placement x="0" y="0" w="%screen_w%" h="%screen_h%"/>
++				<action function="overlay"/>
++			</button>
++
++			<action>
++				<touch x="0" y="0" w="%screen_w%" h="%screen_h%"/>
++				<action function="overlay"/>
++			</action>
+ 
+ 			<action>
+ 				<touch key="power"/>
+-				<action function="togglebacklight"/>
++				<action function="overlay"/>
++			</action>
++
++			<action>
++				<touch key="back"/>
++				<action function="overlay"/>
++			</action>
++
++			<action>
++				<touch key="home"/>
++				<action function="overlay"/>
+ 			</action>
+ 		</page>
+ 
+@@ -73,7 +70,7 @@
+ 				<font resource="fixed"/>
+ 			</console>
+ 			
+-			<slidervalue>
++			<slidervalue style="slidervalue">
+ 				<condition var1="tw_has_brightnesss_file" var2="1"/>
+ 				<placement x="-24" y="%console_brightness_y%" w="%slidervalue_w%" />
+ 				<data variable="tw_brightness_pct" min="10" max="100" showrange="0" showcurr="0" changeondrag="1"/>
+diff --git a/gui/theme/portrait_hdpi/pages/customization.xml b/gui/theme/portrait_hdpi/pages/customization.xml
+index 3d5cc9b3..06e5ab2a 100644
+--- a/gui/theme/portrait_hdpi/pages/customization.xml
++++ b/gui/theme/portrait_hdpi/pages/customization.xml
+@@ -154,6 +154,7 @@
+ 
+ 			<listbox style="group_list">
+ 				<placement x="0" y="%ab_h%" w="%screen_w%" h="%bl_fullscreen_h%"/>
++				<iconsize w="160" h="96" padding="20"/>
+ 				<listitem name="{@theme_hdr}">
+ 					<icon res="style"/>
+ 					<action function="page">ext_custom_theme</action>
+@@ -1143,20 +1144,24 @@
+ 				<text>{@theme_hdr}</text>
+ 			</text>
+ 
+-			<!-- Fox brand themes -->
++			<!-- Vertical Divider Line between Themes and Accents -->
++			<fill color="%linecolor%">
++				<placement x="760" y="140" w="2" h="780"/>
++			</fill>
++
++			<!-- LEFT COLUMN: Themes (X: 80 to 740) -->
+ 			<text style="caption">
+-				<placement x="%col1_x%" y="%row1_1_y%" />
+-				<text>{@theme_fox_style}</text>
++				<placement x="80" y="125"/>
++				<text>{@theme_custom_style}</text>
+ 			</text>
+ 
+-			<!-- Brand Cream -->
++			<!-- Brand Cream (Row 1, Col 1) -->
+ 			<image>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y1%" placement="4"/>
+ 				<image resource="style_cream"/>
+ 				<action function="set">theme_style_tmp=Cream</action>
+ 				<action function="set">theme_style_act_tmp=Black</action>
+@@ -1164,22 +1169,23 @@
+ 				<action function="set">theme_accent_light_tmp=#D86100</action>
+ 				<action function="set">theme_accent_dark_tmp=#ED6F02</action>
+ 			</button>
+-
+ 			<image>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y1%" placement="4"/>
+ 				<condition var1="theme_style_tmp" var2="Cream"/>
+ 				<image resource="style_apply_black"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<placement x="%ws_theme_x1%" y="%ws_theme_label_y1%" placement="4"/>
++				<text>Cream</text>
++			</text>
+ 
+-			<!-- Brand Dark -->
++			<!-- Brand Dark (Row 1, Col 2) -->
+ 			<image>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y1%" placement="4"/>
+ 				<image resource="style_dark"/>
+ 				<action function="set">theme_style_tmp=Dark</action>
+ 				<action function="set">theme_style_act_tmp=Gray</action>
+@@ -1187,422 +1193,461 @@
+ 				<action function="set">theme_accent_light_tmp=#D86100</action>
+ 				<action function="set">theme_accent_dark_tmp=#ED6F02</action>
+ 			</button>
+-
+ 			<image>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y1%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y1%" placement="4"/>
+ 				<condition var1="theme_style_tmp" var2="Dark"/>
+ 				<image resource="style_apply_black"/>
+ 			</image>
+-
+-			<!-- Custom Themes -->
+ 			<text style="caption">
+-				<placement x="%col1_x%" y="%row3_1_y%" />
+-				<text>{@theme_custom_style}</text>
++				<placement x="%ws_theme_x2%" y="%ws_theme_label_y1%" placement="4"/>
++				<text>Dark</text>
+ 			</text>
+ 
+-			<!-- Black -->
++			<!-- Black (Row 2, Col 1) -->
+ 			<image>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-			
+ 			<button>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y2%" placement="4"/>
+ 				<image resource="style_black"/>
+ 				<action function="set">theme_style_tmp=Black</action>
+ 				<action function="set">theme_style_act_tmp=Default</action>
+ 			</button>
+-
+ 			<image>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y2%" placement="4"/>
+ 				<condition var1="theme_style_tmp" var2="Black"/>
+ 				<image resource="style_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<placement x="%ws_theme_x1%" y="%ws_theme_label_y2%" placement="4"/>
++				<text>Black</text>
++			</text>
+ 
+-			<!-- Gray brand -->
++			<!-- Gray (Row 2, Col 2) -->
+ 			<image>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-			
+ 			<button>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y2%" placement="4"/>
+ 				<image resource="style_gray"/>
+ 				<action function="set">theme_style_tmp=Gray</action>
+ 				<action function="set">theme_style_act_tmp=Default</action>
+ 			</button>
+-
+ 			<image>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x2%" y="%ws_theme_y2%" placement="4"/>
+ 				<condition var1="theme_style_tmp" var2="Gray"/>
+ 				<image resource="style_apply"/>
+ 			</image>
+-			<!-- -->
+-			
+-			<!-- Light -->
++			<text style="caption">
++				<placement x="%ws_theme_x2%" y="%ws_theme_label_y2%" placement="4"/>
++				<text>Gray</text>
++			</text>
++
++			<!-- Light (Row 3, Col 1) -->
+ 			<image>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y3%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y3%" placement="4"/>
+ 				<image resource="style_light"/>
+ 				<action function="set">theme_style_tmp=Light</action>
+ 				<action function="set">theme_style_act_tmp=Black</action>
+ 			</button>
+-
+ 			<image>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y2%" placement="4"/>
++				<placement x="%ws_theme_x1%" y="%ws_theme_y3%" placement="4"/>
+ 				<condition var1="theme_style_tmp" var2="Light"/>
+ 				<image resource="style_apply_black"/>
+ 			</image>
+-			 
++			<text style="caption">
++				<placement x="%ws_theme_x1%" y="%ws_theme_label_y3%" placement="4"/>
++				<text>Light</text>
++			</text>
+ 
+-			<!-- Accent colors -->
++			<!-- RIGHT COLUMN: Accent Colors (X: 800 to 2350) -->
+ 			<text style="caption">
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%col1_x%" y="%row5_1_y%" />
++				<placement x="840" y="125"/>
+ 				<text>{@theme_accent}</text>
+ 			</text>
+ 
+-			<text style="text_body2">
++			<text style="text_body1">
+ 				<condition var1="theme_style" var2="Dark"/>
+-				<placement x="%col1_x_indent%" y="%row6_1_y%"/>
++				<placement x="840" y="240"/>
+ 				<text>{@brand_theme_no_accents}</text>
+ 			</text>
+ 
+-			<text style="text_body2">
++			<text style="text_body1">
+ 				<condition var1="theme_style" var2="Cream"/>
+-				<placement x="%col1_x_indent%" y="%row6_1_y%"/>
++				<placement x="840" y="240"/>
+ 				<text>{@brand_theme_no_accents}</text>
+ 			</text>
+ 
+-			<!-- Fox -->
++			<!-- ROW 1 OF ACCENTS -->
++			<!-- Fox (Row 1, Col 1) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="accent_fox"/>
+ 				<action function="set">theme_accent_tmp=Fox</action>
+ 				<action function="set">theme_accent_light_tmp=#D86100</action>
+ 				<action function="set">theme_accent_dark_tmp=#ED6F02</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y1%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Fox"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_label_y1%" placement="4"/>
++				<text>Fox (Orange)</text>
++			</text>
+ 
+-			<!-- Google -->
++			<!-- Google (Row 1, Col 2) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="accent_google"/>
+ 				<action function="set">theme_accent_tmp=Google</action>
+ 				<action function="set">theme_accent_light_tmp=#1A73E8</action>
+ 				<action function="set">theme_accent_dark_tmp=#8AB4F8</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y1%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Google"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_label_y1%" placement="4"/>
++				<text>Google (Blue)</text>
++			</text>
+ 
+-			<!-- Lollipop -->
++			<!-- Lollipop (Row 1, Col 3) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="accent_lollipop"/>
+ 				<action function="set">theme_accent_tmp=Lollipop</action>
+ 				<action function="set">theme_accent_light_tmp=#009788</action>
+ 				<action function="set">theme_accent_dark_tmp=#93BBBA</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y1%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Lollipop"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_label_y1%" placement="4"/>
++				<text>Lollipop (Teal)</text>
++			</text>
+ 
+-			<!-- Black -->
++			<!-- Black (Row 1, Col 4) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y1%" placement="4"/>
+ 				<image resource="accent_black"/>
+ 				<action function="set">theme_accent_tmp=Black</action>
+ 				<action function="set">theme_accent_light_tmp=#202124</action>
+ 				<action function="set">theme_accent_dark_tmp=#D7DEE6</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y3%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y1%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Black"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_label_y1%" placement="4"/>
++				<text>Black (Dark)</text>
++			</text>
+ 
+-			<!-- Red -->
++			<!-- ROW 2 OF ACCENTS -->
++			<!-- Red (Row 2, Col 1) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="accent_red"/>
+ 				<action function="set">theme_accent_tmp=Red</action>
+ 				<action function="set">theme_accent_light_tmp=#E53935</action>
+ 				<action function="set">theme_accent_dark_tmp=#FF5252</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y2%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Red"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_label_y2%" placement="4"/>
++				<text>Red</text>
++			</text>
+ 
+-			<!-- Orchid -->
++			<!-- Orchid (Row 2, Col 2) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="accent_orchid"/>
+ 				<action function="set">theme_accent_tmp=Orchid</action>
+ 				<action function="set">theme_accent_light_tmp=#C42CC9</action>
+ 				<action function="set">theme_accent_dark_tmp=#E68AED</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y2%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Orchid"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_label_y2%" placement="4"/>
++				<text>Orchid (Pink)</text>
++			</text>
+ 
+-			<!-- Green -->
++			<!-- Green (Row 2, Col 3) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="accent_green"/>
+ 				<action function="set">theme_accent_tmp=Green</action>
+ 				<action function="set">theme_accent_light_tmp=#1B873B</action>
+ 				<action function="set">theme_accent_dark_tmp=#84C188</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y2%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Green"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_label_y2%" placement="4"/>
++				<text>Green</text>
++			</text>
+ 
+-			<!-- Space -->
++			<!-- Space (Row 2, Col 4) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y2%" placement="4"/>
+ 				<image resource="accent_space"/>
+ 				<action function="set">theme_accent_tmp=Space</action>
+ 				<action function="set">theme_accent_light_tmp=#47618A</action>
+ 				<action function="set">theme_accent_dark_tmp=#99ACCC</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y4%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y2%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Space"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_label_y2%" placement="4"/>
++				<text>Space (Slate)</text>
++			</text>
+ 
+-			<!-- Ocean -->
++			<!-- ROW 3 OF ACCENTS -->
++			<!-- Ocean (Row 3, Col 1) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="accent_ocean"/>
+ 				<action function="set">theme_accent_tmp=Ocean</action>
+ 				<action function="set">theme_accent_light_tmp=#0C80A7</action>
+ 				<action function="set">theme_accent_dark_tmp=#28BDD7</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x1%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_y3%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Ocean"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x1%" y="%ws_accent_label_y3%" placement="4"/>
++				<text>Ocean (Cyan)</text>
++			</text>
+ 
+-			<!-- Purple -->
++			<!-- Purple (Row 3, Col 2) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="accent_purple"/>
+ 				<action function="set">theme_accent_tmp=Purple</action>
+ 				<action function="set">theme_accent_light_tmp=#725AFF</action>
+ 				<action function="set">theme_accent_dark_tmp=#B5A9FC</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x2%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_y3%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Purple"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x2%" y="%ws_accent_label_y3%" placement="4"/>
++				<text>Purple</text>
++			</text>
+ 
+-			<!-- Yellow -->
++			<!-- Yellow (Row 3, Col 3) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="accent_yellow"/>
+ 				<action function="set">theme_accent_tmp=Yellow</action>
+ 				<action function="set">theme_accent_light_tmp=#E6AF05</action>
+ 				<action function="set">theme_accent_dark_tmp=#E6E68C</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x3%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_y3%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Yellow"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x3%" y="%ws_accent_label_y3%" placement="4"/>
++				<text>Yellow</text>
++			</text>
+ 
+-			<!-- Cinnamon -->
++			<!-- Cinnamon (Row 3, Col 4) -->
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="style_shadow"/>
+ 			</image>
+-
+ 			<button>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y3%" placement="4"/>
+ 				<image resource="accent_cinnamon"/>
+ 				<action function="set">theme_accent_tmp=Cinnamon</action>
+ 				<action function="set">theme_accent_light_tmp=#AF6050</action>
+ 				<action function="set">theme_accent_dark_tmp=#C3A6A2</action>
+ 			</button>
+-			
+ 			<image>
+ 				<condition var1="theme_style" op="!=" var2="Dark"/>
+ 				<condition var1="theme_style" op="!=" var2="Cream"/>
+-				<placement x="%ws_cards_x4%" y="%ws_cards_y5%" placement="4"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_y3%" placement="4"/>
+ 				<condition var1="theme_accent_tmp" var2="Cinnamon"/>
+ 				<image resource="accent_apply"/>
+ 			</image>
+-			<!-- -->
++			<text style="caption">
++				<condition var1="theme_style" op="!=" var2="Dark"/>
++				<condition var1="theme_style" op="!=" var2="Cream"/>
++				<placement x="%ws_accent_x4%" y="%ws_accent_label_y3%" placement="4"/>
++				<text>Cinnamon (Rust)</text>
++			</text>
+ 
+ 			
+ 			<action>
+diff --git a/gui/theme/portrait_hdpi/pages/files.xml b/gui/theme/portrait_hdpi/pages/files.xml
+index 62d93646..ded30d5e 100644
+--- a/gui/theme/portrait_hdpi/pages/files.xml
++++ b/gui/theme/portrait_hdpi/pages/files.xml
+@@ -93,7 +93,7 @@
+ 			</button>
+ 			
+ 			<button style="actionbar">
+-				<placement x="%fm_sort_x%" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_sort_x%" y="%ab_search_y%" w="72" h="72" placement="4"/>
+ 				<action function="overlay">fm_sort</action>
+ 			</button>
+ 
+@@ -108,7 +108,7 @@
+ 			</image>
+ 
+ 			<button style="actionbar">
+-				<placement x="%fm_menu_x%" y="%ab_search_y%" placement="4"/>
++				<placement x="%fm_menu_x%" y="%ab_search_y%" w="72" h="72" placement="4"/>
+ 				<action function="page">menu</action>
+ 			</button>
+ 
+@@ -1030,19 +1030,19 @@
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="tw_rp_type" var2="1"/>
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@symlink_dir_name}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="tw_rp_type" var2="0"/>
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@symlink_file_name}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="tw_rp_type" var2="2"/>
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@symlink_broken_name}</text>
+ 			</text>
+ 
+@@ -1051,7 +1051,7 @@
+ 				<condition var1="tw_rp_type" op="!=" var2="2"/>
+ 				<condition var1="tw_rp_type" op="!=" var2="1"/>
+ 				<condition var1="tw_rp_type" op="!=" var2="0"/>
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@fm_type_file}</text>
+ 			</text>
+ 
+@@ -1060,12 +1060,12 @@
+ 				<condition var1="tw_rp_type" op="!=" var2="2"/>
+ 				<condition var1="tw_rp_type" op="!=" var2="1"/>
+ 				<condition var1="tw_rp_type" op="!=" var2="0"/>
+-				<placement x="%col1_x%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@fm_type_folder}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_lim">
+-				<placement x="%col1_x%" y="%row1_2_y%"/>
++				<placement x="%col1_x_indent%" y="156"/>
+ 				<text>%tw_filename1%</text>
+ 			</text>
+ 
+@@ -1132,12 +1132,12 @@
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+-				<placement x="%col1_x_indent%" y="%row1_2_y%" placement="2"/>
++				<placement x="%col1_x_indent%" y="116"/>
+ 				<text>{@fm_open}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_lim">
+-				<placement x="%col1_x_indent%" y="%row1_2_y%"/>
++				<placement x="%col1_x_indent%" y="156"/>
+ 				<text>%tw_filename1%</text>
+ 			</text>
+ 
+@@ -1845,7 +1845,7 @@
+ 				<condition var1="tw_artype" op="!=" var2="1"/>
+ 				<text>{@arc_lvl_title}</text>
+ 			</text>
+-			<slidervalue>
++			<slidervalue style="slidervalue">
+ 				<placement x="%slider_x%" y="%row6_2_y%" w="%slidervalue_w%"/>
+ 				<condition var1="tw_artype" op="!=" var2="1"/>
+ 				<condition var1="tw_artype" op="!=" var2="0"/>
+@@ -1853,7 +1853,7 @@
+ 				<condition var1="tw_extract_action" var2="1"/>
+ 				<data variable="tw_pack_lvl" min="1" max="9" showrange="0" showcurr="0" changeondrag="1"/>
+ 			</slidervalue>
+-			<slidervalue>
++			<slidervalue style="slidervalue">
+ 				<placement x="%slider_x%" y="%row6_2_y%" w="%slidervalue_w%"/>
+ 				<condition var1="tw_artype" var2="0"/>
+ 				<condition var1="tw_extract_action" var2="1"/>
+diff --git a/gui/theme/portrait_hdpi/pages/restore.xml b/gui/theme/portrait_hdpi/pages/restore.xml
+index e0590089..d4bb569f 100644
+--- a/gui/theme/portrait_hdpi/pages/restore.xml
++++ b/gui/theme/portrait_hdpi/pages/restore.xml
+@@ -130,34 +130,34 @@
+ 			<image>
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<image resource="empty_folder"/>
+-				<placement x="%center_x%" y="330" placement="4"/>
++				<placement x="%center_x%" y="270" placement="4"/>
+ 			</image>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="475" placement="4"/>
++				<placement x="%center_x%" y="480" placement="4"/>
+ 				<text>{@backups_wat}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="475" placement="4"/>
++				<placement x="%center_x%" y="480" placement="4"/>
+ 				<text>{@backups_rw_error_1}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_subtitle_orange">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" op="!=" var2="1"/>
+-				<placement x="%center_x%" y="475" placement="4"/>
++				<placement x="%center_x%" y="480" placement="4"/>
+ 				<text>{@backups_rw_error_2}</text>
+ 			</text>
+ 
+ 			<button style="btn_raised_hl">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<condition var1="of_backup_rw" var2="1"/>
+-				<placement x="%center_x%" y="555" placement="4"/>
++				<placement x="%center_x%" y="570" placement="4"/>
+ 				<text>{@backup_short_hdr}</text>
+ 				<action function="set">tw_encrypt_backup=0</action>
+ 				<action function="set">tw_backup_password=</action>
+@@ -168,7 +168,7 @@
+ 			<button style="btn_raised">
+ 				<condition var1="of_backup_empty" var2="1"/>
+ 				<text>{@select_storage_hdr}</text>
+-				<placement x="%center_x%" y="635" placement="4"/>
++				<placement x="%center_x%" y="660" placement="4"/>
+ 				<action function="set">of_show_storage_selection=1</action>
+ 			</button>
+ 			
+diff --git a/gui/theme/portrait_hdpi/pages/settings.xml b/gui/theme/portrait_hdpi/pages/settings.xml
+index cc33ca3c..8597feee 100644
+--- a/gui/theme/portrait_hdpi/pages/settings.xml
++++ b/gui/theme/portrait_hdpi/pages/settings.xml
+@@ -5,7 +5,7 @@
+ 		<page name="settings">
+ 			<listbox style="group_list">
+ 				<placement x="0" y="%ab_h%" w="%screen_w%" h="%bl_fullscreen_h%"/>
+-				<iconsize w="180" h="84" padding="16"/>
++				<iconsize w="160" h="116" padding="20"/>
+ 				<listitem name="{@settings_general}">
+ 					<icon res="bs_btn_set_global"/>
+ 					<action function="set">general_back=settings</action>
+@@ -238,12 +238,40 @@
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row2_1_y%"/>
++				<placement x="%gl_text_x%" y="145"/>
++				<text>{@perf_conf_mode}</text>
++			</text>
++			
++			<text style="text_body1">
++				<condition var1="fox_boot_performance_check" var2="1"/>
++				<placement x="%col1_x_caption%" y="190"/>
++				<text>{@perf_conf_high}</text>
++			</text>
++			
++			<text style="text_body1">
++				<condition var1="fox_boot_powersave_check" var2="1"/>
++				<placement x="%col1_x_caption%" y="190"/>
++				<text>{@perf_conf_batt}</text>
++			</text>
++			
++			<text style="text_body1">
++				<condition var1="fox_boot_balance_check" var2="1"/>
++				<placement x="%col1_x_caption%" y="190"/>
++				<text>{@perf_conf_balance}</text>
++			</text>
++
++			<button style="menu_btn">
++				<placement x="%gl_text_x%" y="145" w="%input_w%" h="80"/>
++				<action function="page">ext_gov</action>
++			</button>
++
++			<text style="caption">
++				<placement x="%gl_text_x%" y="245"/>
+ 				<text>{@options_hdr}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="%row2_2_y%" w="%screen_w%" h="%lb_group_l10%"/>
++				<placement x="0" y="290" w="%screen_w%" h="640"/>
+ 				<listitem name="{@mount_sys_ro_chk}">
+ 					<icon res="checkbox_true"/>
+ 					<condition var1="tw_mount_system_ro" op="!=" var2="0"/>
+@@ -282,7 +310,6 @@
+ 				</listitem>
+ 				<listitem name="{@auto_disable_avb2=Disable vbmeta AVB2.0}">
+ 					<condition var1="fox_auto_disable_vbmeta_avb2" var2="1"/>
+-					<!--condition var1="fox_patch_avb_20" op="!=" var2="1"/-->
+ 					<data variable="tw_auto_disable_avb2"/>
+ 				</listitem>
+ 				<listitem name="{@unmount_sys_install}">
+@@ -306,34 +333,6 @@
+ 				</listitem>
+ 			</listbox>
+ 			
+-			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
+-				<text>{@perf_conf_mode}</text>
+-			</text>
+-			
+-			<text style="text_body1">
+-				<condition var1="fox_boot_performance_check" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row1_2_y%"/>
+-				<text>{@perf_conf_high}</text>
+-			</text>
+-			
+-			<text style="text_body1">
+-				<condition var1="fox_boot_powersave_check" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row1_2_y%"/>
+-				<text>{@perf_conf_batt}</text>
+-			</text>
+-			
+-			<text style="text_body1">
+-				<condition var1="fox_boot_balance_check" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row1_2_y%"/>
+-				<text>{@perf_conf_balance}</text>
+-			</text>
+-
+-			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="%row1_1_y%" w="%input_w%" h="%mb_h_hide%"/>
+-				<action function="page">ext_gov</action>
+-			</button>
+-			
+ 			<action>
+ 				<condition var1="tw_busy" var2="0"/>
+ 				<condition var1="fox_boot_performance_check" op="!=" var2="1"/>
+@@ -368,17 +367,17 @@
+ 
+ 			<image>
+ 				<image resource="fox_lock"/>
+-				<placement x="68" y="%row1_1_y%"/>
++				<placement x="80" y="150" w="110" h="180"/>
+ 			</image>
+ 
+ 			<text style="text_body1_hl">
+-				<placement x="450" y="%row1_1_y%"/>
++				<placement x="240" y="150"/>
+ 				<text>{@pass_page_block}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="fox_use_pass" op="!=" var2="1"/>
+-				<placement x="450" y="%row1_2_y%"/>
++				<placement x="240" y="195"/>
+ 				<text>{@fm_none}</text>
+ 			</text>
+ 
+@@ -386,53 +385,53 @@
+ 				<condition var1="fox_pass_type" op="!=" var2="1"/>
+ 				<condition var1="fox_pass_type" op="!=" var2="2"/>
+ 				<condition var1="fox_use_pass" var2="1"/>
+-				<placement x="450" y="%row1_2_y%"/>
++				<placement x="240" y="195"/>
+ 				<text>{@pass_classic}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="fox_pass_type" var2="2"/>
+ 				<condition var1="fox_use_pass" var2="1"/>
+-				<placement x="450" y="%row1_2_y%"/>
++				<placement x="240" y="195"/>
+ 				<text>{@pass_pin}</text>
+ 			</text>
+ 
+ 			<text style="text_ab_title">
+ 				<condition var1="fox_use_pass" var2="1"/>
+ 				<condition var1="fox_pass_type" var2="1"/>
+-				<placement x="450" y="%row1_2_y%"/>
++				<placement x="240" y="195"/>
+ 				<text>{@pass_gk}</text>
+ 			</text>
+ 
+ 			<text style="text_body1_hl">
+-				<placement x="450" y="%row2_3a_y%"/>
++				<placement x="240" y="250"/>
+ 				<text>{@pass_page_block_inf1}</text>
+ 			</text>
+ 
+ 			<text style="text_body1_hl">
+-				<placement x="450" y="%row3_1a_y%"/>
++				<placement x="240" y="295"/>
+ 				<text>{@pass_page_block_inf2}</text>
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row4_2_y%"/>
++				<placement x="%gl_text_x%" y="360"/>
+ 				<text>ADB</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="%row4_3_y%" w="%screen_w%" h="%lb_group_l1%"/>
++				<placement x="0" y="405" w="%screen_w%" h="%lb_group_l1%"/>
+ 				<listitem name="{@run_adb_startup}">
+ 					<data variable="adb_startup"/>
+ 				</listitem>
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row5_3a_y%"/>
++				<placement x="%gl_text_x%" y="505"/>
+ 				<text>{@pass_page_select}</text>
+ 			</text>
+ 
+ 			<listbox style="group_list">
+-				<placement x="0" y="%row6_1a_y%" w="%screen_w%" h="%bl_h4%"/>
++				<placement x="0" y="550" w="%screen_w%" h="380"/>
+ 				<listitem name="{@pass_classic}">
+ 					<icon res="keyboard"/>
+ 					<action function="set">pass_new_1=</action>
+@@ -494,19 +493,19 @@
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
++				<placement x="%gl_text_x%" y="150"/>
+ 				<text>{@settings_screen_cptn}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_has_brightnesss_file" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row1_2_y%"/>
++				<placement x="%col1_x_caption%" y="195"/>
+ 				<text>{@screen_bright_slider}</text>
+ 			</text>
+ 
+-			<slidervalue>
++			<slidervalue style="slidervalue">
+ 				<condition var1="tw_has_brightnesss_file" var2="1"/>
+-				<placement x="%slider_x%" y="%row1_3_y%" w="%slidervalue_w%"/>
++				<placement x="%slider_x%" y="245" w="%slidervalue_w%"/>
+ 				<data variable="tw_brightness_pct" min="10" max="100" showrange="0" showcurr="0" changeondrag="1"/>
+ 				<action function="set">tw_brightness=%tw_brightness_max%</action>
+ 				<action function="compute">tw_brightness*%tw_brightness_pct%</action>
+@@ -517,32 +516,32 @@
+ 			<text style="text_body1">
+ 				<condition var1="tw_screen_timeout_secs" var2="0"/>
+ 				<condition var1="tw_no_screen_timeout" op="!=" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row2_3a_y%"/>
++				<placement x="%col1_x_caption%" y="365"/>
+ 				<text>{@settings_screen_timeout_cptn}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_screen_timeout_secs" op="!=" var2="0"/>
+ 				<condition var1="tw_no_screen_timeout" op="!=" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row2_3a_y%"/>
++				<placement x="%col1_x_caption%" y="365"/>
+ 				<text>{@settings_screen_timeout_cptn2} %tw_screen_timeout_secs% {@timeout_unit}</text>
+ 			</text>
+ 
+-			<slidervalue>
++			<slidervalue style="slidervalue">
+ 				<condition var1="tw_no_screen_timeout" op="!=" var2="1"/>
+-				<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>
++				<placement x="%slider_x%" y="415" w="%slidervalue_w%"/>
+ 				<data variable="tw_screen_timeout_secs" min="0" max="300" showrange="0" showcurr="0" changeondrag="1"/>
+ 			</slidervalue>
+ 
+ 			<text style="caption">
+ 				<condition var1="no_green_led" op="!=" var2="1"/>
+-				<placement x="%col1_x_caption%" y="%row4_2a_y%"/>
++				<placement x="%col1_x_caption%" y="540"/>
+ 				<text>{@fox_led_title}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist">
+ 				<condition var1="no_green_led" op="!=" var2="1"/>
+-				<placement x="0" y="%row4_3a_y%" w="%screen_w%" h="%lb_l1%"/>
++				<placement x="0" y="585" w="%screen_w%" h="%lb_l1%"/>
+ 				<listitem name="{@fox_use_green_led}">
+ 					<data variable="fox_led_color"/>
+ 				</listitem>
+@@ -571,58 +570,58 @@
+ 			</text>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="%row1_1_y%"/>
++				<placement x="%gl_text_x%" y="150"/>
+ 				<text>{@vibration_hdr}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="%row1_2_y%"/>
++				<placement x="%gl_text_x%" y="195"/>
+ 				<condition var1="tw_button_vibrate" op="!=" var2="0"/>
+ 				<text>{@button_vibration} %tw_button_vibrate%</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_button_vibrate" var2="0"/>
+-				<placement x="%col1_x_caption%" y="%row1_2_y%"/>
++				<placement x="%col1_x_caption%" y="195"/>
+ 				<text>{@button_vibration_hdr}</text>
+ 			</text>
+ 
+-			<slidervalue>
+-				<placement x="%slider_x%" y="%row1_3_y%" w="%slidervalue_w%"/>
++			<slidervalue style="slidervalue">
++				<placement x="%slider_x%" y="245" w="%slidervalue_w%"/>
+ 				<data variable="tw_button_vibrate" min="0" max="300" showrange="0" showcurr="0" changeondrag="1"/>
+ 			</slidervalue>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_keyboard_vibrate" op="!=" var2="0"/>
+-				<placement x="%col1_x_caption%" y="%row2_3a_y%"/>
++				<placement x="%col1_x_caption%" y="365"/>
+ 				<text>{@kb_vibration} %tw_keyboard_vibrate%</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_keyboard_vibrate" var2="0"/>
+-				<placement x="%col1_x_caption%" y="%row2_3a_y%"/>
++				<placement x="%col1_x_caption%" y="365"/>
+ 				<text>{@kb_vibration_hdr}</text>
+ 			</text>
+ 
+-			<slidervalue>
+-				<placement x="%slider_x%" y="%row3_1a_y%" w="%slidervalue_w%"/>
++			<slidervalue style="slidervalue">
++				<placement x="%slider_x%" y="415" w="%slidervalue_w%"/>
+ 				<data variable="tw_keyboard_vibrate" min="0" max="300" showrange="0" showcurr="0" changeondrag="1"/>
+ 			</slidervalue>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_action_vibrate" op="!=" var2="0"/>
+-				<placement x="%col1_x_caption%" y="%row4_2_y%"/>
++				<placement x="%col1_x_caption%" y="540"/>
+ 				<text>{@act_vibration} %tw_action_vibrate%</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+ 				<condition var1="tw_action_vibrate" var2="0"/>
+-				<placement x="%col1_x_caption%" y="%row4_2_y%"/>
++				<placement x="%col1_x_caption%" y="540"/>
+ 				<text>{@act_vibration_hdr}</text>
+ 			</text>
+ 
+-			<slidervalue>
+-				<placement x="%slider_x%" y="%row4_3_y%" w="%slidervalue_w%"/>
++			<slidervalue style="slidervalue">
++				<placement x="%slider_x%" y="590" w="%slidervalue_w%"/>
+ 				<data variable="tw_action_vibrate" min="0" max="500" showrange="0" showcurr="0" changeondrag="1"/>
+ 			</slidervalue>
+ 
+@@ -648,56 +647,58 @@
+ 				<text>{@backup_hdr}</text>
+ 			</text>
+ 
++			<!-- LEFT COLUMN (X: 80 to 1160) -->
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="145"/>
++				<placement x="80" y="145"/>
+ 				<text>{@settings_backup_qbkp_custom}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="175"/>
++				<placement x="80" y="190"/>
+ 				<text>%tw_backup_list_quick%</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="145" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="80" y="145" w="1080" h="80"/>
+ 				<action function="page">ext_backup_quick</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="225"/>
++				<placement x="80" y="255"/>
+ 				<text>{@backup_av}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="255"/>
++				<placement x="80" y="300"/>
+ 				<text>{@backup_av_files}: %of_average_file% (%of_average_ext_file%) | {@backup_av_img}: %of_average_img% (%of_average_ext_img%) {@mbytesec}</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="225" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="80" y="255" w="1080" h="80"/>
+ 				<action function="overlay">dialog_reset_average</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="305"/>
++				<placement x="80" y="365"/>
+ 				<text>{@settings_backup_name}</text>
+ 			</text>
+ 
+ 			<listbox style="radiobox_group">
+-				<placement x="0" y="335" w="%screen_w%" h="%lb_group_l3%"/>
++				<placement x="80" y="410" w="1080" h="220"/>
+ 				<data name="auto_generate"/>
+ 				<listitem name="{@settings_backup_name_user}">2</listitem>
+ 				<listitem name="{@settings_backup_name_auto}">1</listitem>
+ 				<listitem name="{@settings_backup_name_auto_hide}">0</listitem>
+ 			</listbox>
+ 
++			<!-- RIGHT COLUMN (X: 1240 to 2320) -->
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="495"/>
+-			<text>{@cust_oth}</text>
++				<placement x="1240" y="145"/>
++				<text>{@cust_oth}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="530" w="%screen_w%" h="380"/>
++				<placement x="1240" y="190" w="1080" h="680"/>
+ 				<listitem name="{@enable_backup_comp_chk}">
+ 					<data variable="tw_use_compression"/>
+ 				</listitem>
+@@ -745,13 +746,14 @@
+ 				<text>{@settings_time}</text>
+ 			</text>
+ 
++			<!-- LEFT COLUMN (X: 80 to 1160): Time Zone List -->
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="145"/>
++				<placement x="80" y="145"/>
+ 				<text>{@sel_tz_list}</text>
+ 			</text>
+ 
+ 			<listbox style="radiobox_group">
+-				<placement x="0" y="175" w="%screen_w%" h="230"/>
++				<placement x="80" y="190" w="1080" h="680"/>
+ 				<data name="tw_time_zone_guisel"/>
+ 				<listitem name="{@utcm11}">BST11;BDT</listitem>
+ 				<listitem name="{@utcm10}">HST10;HDT</listitem>
+@@ -779,13 +781,14 @@
+ 				<listitem name="{@utcp12}">NZST-12;NZDT</listitem>
+ 			</listbox>
+ 
++			<!-- RIGHT COLUMN (X: 1240 to 2320): Options, Offset, Language -->
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="420"/>
++				<placement x="1240" y="145"/>
+ 				<text>{@options_cptn}</text>
+ 			</text>
+ 
+ 			<listbox style="settingslist_group">
+-				<placement x="0" y="450" w="%screen_w%" h="120"/>
++				<placement x="1240" y="190" w="1080" h="180"/>
+ 				<listitem name="{@use_dst_chk}">
+ 					<data variable="tw_time_zone_guidst"/>
+ 				</listitem>
+@@ -795,34 +798,34 @@
+ 			</listbox>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="585"/>
++				<placement x="1240" y="395"/>
+ 				<text>{@tz_offset}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="615"/>
++				<placement x="1240" y="440"/>
+ 				<text>{@sel_tz_offset}</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="585" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="1240" y="395" w="1080" h="80"/>
+ 				<action function="set">zone_temp=%tw_time_zone_guioffset%</action>
+ 				<action function="set">zone_error=0</action>
+ 				<action function="page">ext_time_offset</action>
+ 			</button>
+ 
+ 			<text style="caption">
+-				<placement x="%gl_text_x%" y="675"/>
++				<placement x="1240" y="525"/>
+ 				<text>{@language_cptn}</text>
+ 			</text>
+ 
+ 			<text style="text_body1">
+-				<placement x="%gl_text_x%" y="705"/>
++				<placement x="1240" y="570"/>
+ 				<text>%tw_language_display%</text>
+ 			</text>
+ 
+ 			<button style="menu_btn">
+-				<placement x="%gl_text_x%" y="675" w="%input_w%" h="%mb_h_hide%"/>
++				<placement x="1240" y="525" w="1080" h="80"/>
+ 				<action function="page">ext_time_lang</action>
+ 			</button>
+ 
+@@ -1014,8 +1017,8 @@
+ 				<text>{@abt_device}: %fox_compatibility_fox_device%</text>
+ 			</text>
+ 			
+-			<!-- Yan's Card -->
+-			
++			<!-- Yan's Card (row 1, col 1) -->
++
+ 			<image>
+ 				<image resource="author_yan"/>
+ 				<placement x="%card_img_x%" y="%card_img1_y%"/>
+@@ -1023,14 +1026,14 @@
+ 
+ 			<image>
+ 				<image resource="card"/>
+-				<placement x="0" y="%card1_y%"/>
++				<placement x="%card_col1_x%" y="%card1_y%"/>
+ 			</image>
+ 
+ 			<text style="about_name">
+ 				<placement x="%card_txt_x%" y="%card_img1_y%"/>
+ 				<text>MrYacha</text>
+ 			</text>
+-			
++
+ 			<text style="about_info">
+ 				<placement x="%card_txt_x%" y="%cardtxt_1%" />
+ 				<text>{@abt_front}</text>
+@@ -1049,31 +1052,31 @@
+ 				<text>{@abt_main_shrt}</text>
+ 			</button>
+ 			<!-- Card -->
+-			
+-			<!-- fd's Card -->
+-			
++
++			<!-- fd's Card (row 1, col 2) -->
++
+ 			<image>
+ 				<image resource="author_fd"/>
+-				<placement x="%card_img_x%" y="%card_img2_y%"/>
++				<placement x="%card_img_col2_x%" y="%card_img2_y%"/>
+ 			</image>
+ 
+ 			<image>
+ 				<image resource="card"/>
+-				<placement x="0" y="%card2_y%"/>
++				<placement x="%card_col2_x%" y="%card2_y%"/>
+ 			</image>
+ 
+ 			<text style="about_name">
+-				<placement x="%card_txt_x%" y="%card_img2_y%"/>
++				<placement x="%card_txt_col2_x%" y="%card_img2_y%"/>
+ 				<text>fordownloads</text>
+ 			</text>
+ 
+ 			<text style="about_info">
+-				<placement x="%card_txt_x%" y="%cardtxt_3%"/>
++				<placement x="%card_txt_col2_x%" y="%cardtxt_3%"/>
+ 				<text>{@abt_front}</text>
+ 			</text>
+ 
+ 			<text style="about_info">
+-				<placement x="%card_txt_x%" y="%cardtxt_4%"/>
++				<placement x="%card_txt_col2_x%" y="%cardtxt_4%"/>
+ 				<text>{@abt_fd}</text>
+ 			</text>
+ 
+@@ -1081,20 +1084,20 @@
+ 				<condition var1="of_maintainer" var2="2"/>
+ 				<image resource="maintainer_chip_bg"/>
+ 				<font resource="caption" color="#ffffff"/>
+-				<placement x="%card1_mtag_x%" y="%card2_mtag_y%"/>
++				<placement x="%card_mtag_col2_x%" y="%card2_mtag_y%"/>
+ 				<text>{@abt_main_shrt}</text>
+ 			</button>
+ 			<!-- Card -->
+-			
+-			<!-- Bim's Card -->
++
++			<!-- Bim's Card (row 2, col 1) -->
+ 			<image>
+ 				<image resource="author_jabba"/>
+ 				<placement x="%card_img_x%" y="%card_img3_y%"/>
+ 			</image>
+-			
++
+ 			<image>
+ 				<image resource="card"/>
+-				<placement x="0" y="%card3_y%"/>
++				<placement x="%card_col1_x%" y="%card3_y%"/>
+ 			</image>
+ 
+ 			<text style="about_name">
+@@ -1120,29 +1123,29 @@
+ 				<text>{@abt_main_shrt}</text>
+ 			</button>
+ 			<!-- Card -->
+-			
+-			<!-- Maintainer -->
++
++			<!-- Maintainer (row 2, col 2) -->
+ 			<image>
+ 				<image resource="maintainer_img"/>
+ 				<condition var1="of_maintainer" op="!=" var2="3"/>
+ 				<condition var1="of_maintainer" op="!=" var2="2"/>
+ 				<condition var1="of_maintainer" op="!=" var2="1"/>
+-				<placement x="%card_img_x%" y="%card_img4_y%"/>
++				<placement x="%card_img_col2_x%" y="%card_img4_y%"/>
+ 			</image>
+-			
++
+ 			<image>
+ 				<image resource="card"/>
+ 				<condition var1="of_maintainer" op="!=" var2="3"/>
+ 				<condition var1="of_maintainer" op="!=" var2="2"/>
+ 				<condition var1="of_maintainer" op="!=" var2="1"/>
+-				<placement x="0" y="%card4_y%"/>
++				<placement x="%card_col2_x%" y="%card4_y%"/>
+ 			</image>
+ 
+ 			<text style="about_name">
+ 				<condition var1="of_maintainer" op="!=" var2="3"/>
+ 				<condition var1="of_maintainer" op="!=" var2="2"/>
+ 				<condition var1="of_maintainer" op="!=" var2="1"/>
+-				<placement x="%card_txt_x%" y="%card_img4_y%"/>
++				<placement x="%card_txt_col2_x%" y="%card_img4_y%"/>
+ 				<text>%of_maintainer%</text>
+ 			</text>
+ 
+@@ -1150,16 +1153,16 @@
+ 				<condition var1="of_maintainer" op="!=" var2="3"/>
+ 				<condition var1="of_maintainer" op="!=" var2="2"/>
+ 				<condition var1="of_maintainer" op="!=" var2="1"/>
+-				<placement x="%card_txt_x%" y="%cardtxt_7%"/>
++				<placement x="%card_txt_col2_x%" y="%cardtxt_7%"/>
+ 				<text>{@abt_maintainer}</text>
+ 			</text>
+ 			<!-- Card -->
+-			
+-			<!-- Credits button when maintainer is OrangeFox developer -->
++
++			<!-- Credits button when maintainer is OrangeFox developer (top-right, clear of the 2x2 grid) -->
+ 			<image>
+ 				<condition var1="of_maintainer" op="&lt;=" var2="3"/>
+ 				<condition var1="of_maintainer" op="&gt;=" var2="1"/>
+-				<placement x="%center_x%" y="%btn_float_center_y%" placement="4"/>
++				<placement x="%about_fab_x%" y="%about_fab_y%" placement="4"/>
+ 				<image resource="fab_shadow"/>
+ 			</image>
+ 
+@@ -1167,15 +1170,15 @@
+ 				<condition var1="disable_extra_about" op="!=" var2="1"/>
+ 				<condition var1="of_maintainer" op="&lt;=" var2="3"/>
+ 				<condition var1="of_maintainer" op="&gt;=" var2="1"/>
+-				<placement x="%center_x%" y="%btn_float_center_y%" placement="4"/>
++				<placement x="%about_fab_x%" y="%about_fab_y%" placement="4"/>
+ 				<action function="set">credits_page=0</action>
+ 				<action function="page">about_credits</action>
+ 			</button>
+-			
++
+ 			<image>
+ 				<condition var1="of_maintainer" op="&lt;=" var2="3"/>
+ 				<condition var1="of_maintainer" op="&gt;=" var2="1"/>
+-				<placement x="%center_x%" y="%btn_float_center_y%" placement="4"/>
++				<placement x="%about_fab_x%" y="%about_fab_y%" placement="4"/>
+ 				<image resource="fab_credits"/>
+ 			</image>
+ 
+@@ -1186,7 +1189,7 @@
+ 				<condition var1="of_maintainer" op="!=" var2="3"/>
+ 				<condition var1="of_maintainer" op="!=" var2="2"/>
+ 				<condition var1="of_maintainer" op="!=" var2="1"/>
+-				<placement x="752" y="%card4_btn_y%"/>
++				<placement x="%card4_btn_x%" y="%card4_btn_y%"/>
+ 				<text>{@more}</text>
+ 				<action function="set">credits_page=0</action>
+ 				<action function="page">about_credits</action>
+diff --git a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+index 1fa01837..50fb03bf 100644
+--- a/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
++++ b/gui/theme/portrait_hdpi/pages/templates/keyboard.xml
+@@ -5,7 +5,7 @@
+ 			<keyboard>
+ 				<condition var1="key_numbar" op="!=" var2="1"/>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_terminal_y%" w="%screen_w%" h="96"/>
++				<placement x="0" y="%keyboard_terminal_y%" w="%screen_w%" h="80"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel-bold" textcolor="%text%"/>
+ 				<key-other color="%keyboard_bg%" font="keylabel-bold" textcolor="%text_light%"/>
+@@ -20,14 +20,14 @@
+ 				<highlight color="%keyboard_hl%"/>
+ 				<ctrlhighlight color="%keyboard_hl%"/>
+ 				<layout1>
+-					<keysize height="96" width="154"/>
+-					<row1 key01="155:k:29" key02="155:c:27" long02=":c:3" key03="154:c:9" key04="154:k:105" key05="154:k:108" key06="154:k:103" key07="154:k:106"/>
++					<keysize height="80" width="342"/>
++					<row1 key01="343:k:29" key02="343:c:27" long02=":c:3" key03="343:c:9" key04="343:k:105" key05="342:k:108" key06="343:k:103" key07="343:k:106"/>
+ 				</layout1>
+ 			</keyboard>
+ 			<keyboard>
+ 				<condition var1="key_numbar" var2="1"/>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_term_num_y%" w="%screen_w%" h="96"/>
++				<placement x="0" y="%keyboard_term_num_y%" w="%screen_w%" h="80"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel-bold" textcolor="%text%"/>
+ 				<key-other color="%keyboard_bg%" font="keylabel-bold" textcolor="%text_light%"/>
+@@ -42,8 +42,8 @@
+ 				<highlight color="%keyboard_hl%"/>
+ 				<ctrlhighlight color="%keyboard_hl%"/>
+ 				<layout1>
+-					<keysize height="96" width="154"/>
+-					<row1 key01="155:k:29" key02="155:c:27" long02=":c:3" key03="154:c:9" key04="154:k:105" key05="154:k:108" key06="154:k:103" key07="154:k:106"/>
++					<keysize height="80" width="342"/>
++					<row1 key01="343:k:29" key02="343:c:27" long02=":c:3" key03="343:c:9" key04="343:k:105" key05="342:k:108" key06="343:k:103" key07="343:k:106"/>
+ 				</layout1>
+ 			</keyboard>
+ 		</template>
+@@ -52,62 +52,62 @@
+ 			<keyboard>
+ 				<condition var1="key_numbar" var2="1"/>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_num_y%" w="%screen_w%" h="116" />
++				<placement x="0" y="%keyboard_num_y%" w="%screen_w%" h="80" />
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel" textcolor="%text%"/>
+ 				<highlight color="%keyboard_hl%"/>
+ 				<layout1>
+-					<keysize height="116" width="108"/>
++					<keysize height="80" width="240"/>
+ 					<row1 key01="1" key02="2" key03="3" key04="4" key05="5" key06="6" key07="7" key08="8" key09="9" key10="0"/>
+ 				</layout1>
+ 			</keyboard>
+ 			
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_y%"/>
++				<placement x="0" y="%keyboard_y%" w="%screen_w%" h="400"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel" textcolor="%text%"/>
+ 				<key-other color="%keyboard_bg%" font="keylabel-bold" textcolor="%text_light%"/>
+-				<longpress font="keylabel-longpress" textcolor="%text_light%" x="18" y="12"/>
++				<longpress font="keylabel-longpress" textcolor="%text_light%" x="24" y="10"/>
+ 				<keylabel key="0:c:8" text="" resource="backspace" />
+ 				<keylabel key=" " text="" resource="space" noalt="1"/>
+-				<keylabel key="162:action" text="" resource="enter" alt="enter_new"/>
++				<keylabel key="360:action" text="" resource="enter" alt="enter_new"/>
+ 				<highlight color="%keyboard_hl%"/>
+ 				<capshighlight color="%keyboard_hl%"/>
+ 				<layout resource="keyback"/>
+ 				<layout1>
+-					<keysize height="160" width="108"/>
++					<keysize height="100" width="240"/>
+ 					<row1 key01="q" long01="1" key02="w" long02="2" key03="e" long03="3" key04="r" long04="4" key05="t" long05="5" key06="y" long06="6" key07="u" long07="7" key08="i" long08="8" key09="o" long09="9" key10="p" long10="0"/>
+-					<row2 key01="54:" key02="a" long02="@" key03="s" long03="#" key04="d" long04="$" key05="f" long05="%" key06="g" long06="&amp;" key07="h" long07="*" key08="j" long08="-" key09="k" long09="+" key10="l" long10="_" key11="54:"/>
+-					<row3 key01="162:layout2" key02="z" long02="!" key03="x" long03="&quot;" key04="c" long04="'" key05="v" long05=":" key06="b" long06=";" key07="n" long07="," key08="m" long08="?" key09="162:c:8"/>
+-					<row4 key01="162:layout3" key02="/" key03="540: " key04="." key05="162:action"/>
++					<row2 key01="120:" key02="a" long02="@" key03="s" long03="#" key04="d" long04="$" key05="f" long05="%" key06="g" long06="&amp;" key07="h" long07="*" key08="j" long08="-" key09="k" long09="+" key10="l" long10="_" key11="120:"/>
++					<row3 key01="360:layout2" key02="z" long02="!" key03="x" long03="&quot;" key04="c" long04="'" key05="v" long05=":" key06="b" long06=";" key07="n" long07="," key08="m" long08="?" key09="360:c:8"/>
++					<row4 key01="360:layout3" key02="/" key03="1200: " key04="." key05="360:action"/>
+ 					<keylabel key="0:layout2" text="" resource="shift"/>
+ 					<keylabel key="0:layout3" text="?123"/>
+ 				</layout1>
+ 				<layout2>
+-					<keysize height="161" width="108" capslock="0" revert_layout="1"/>
++					<keysize height="100" width="240" capslock="0" revert_layout="1"/>
+ 					<row1 key01="Q" long01="1" key02="W" long02="2" key03="E" long03="3" key04="R" long04="4" key05="T" long05="5" key06="Y" long06="6" key07="U" long07="7" key08="I" long08="8" key09="O" long09="9" key10="P" long10="0"/>
+-					<row2 key01="54:" key02="A" long02="@" key03="S" long03="#" key04="D" long04="$" key05="F" long05="%" key06="G" long06="&amp;" key07="H" long07="*" key08="J" long08="-" key09="K" long09="+" key10="L" long10="_" key11="54:"/>
+-					<row3 key01="162:layout1" key02="Z" long02="!" key03="X" long03="&quot;" key04="C" long04="'" key05="V" long05=":" key06="B" long06=";" key07="N" long07="," key08="M" long08="?" key09="162:c:8"/>
+-					<row4 key01="162:layout3" key02="/" key03="540: " key04="." key05="162:action"/>
++					<row2 key01="120:" key02="A" long02="@" key03="S" long03="#" key04="D" long04="$" key05="F" long05="%" key06="G" long06="&amp;" key07="H" long07="*" key08="J" long08="-" key09="K" long09="+" key10="L" long10="_" key11="120:"/>
++					<row3 key01="360:layout1" key02="Z" long02="!" key03="X" long03="&quot;" key04="C" long04="'" key05="V" long05=":" key06="B" long06=";" key07="N" long07="," key08="M" long08="?" key09="360:c:8"/>
++					<row4 key01="360:layout3" key02="/" key03="1200: " key04="." key05="360:action"/>
+ 					<keylabel key="0:layout1" text="" resource="shift_fill"/>
+ 					<keylabel key="0:layout3" text="?123"/>
+ 				</layout2>
+ 				<layout3>
+-					<keysize height="161" width="108"/>
++					<keysize height="100" width="240"/>
+ 					<row1 key01="1" key02="2" key03="3" key04="4" key05="5" key06="6" key07="7" key08="8" key09="9" key10="0"/>
+-					<row2 key01="54:" key02="@" key03="#" key04="$" key05="%" key06="&amp;" key07="*" key08="-" key09="+" key10="_" key11="54:"/>
+-					<row3 key01="162:layout4" key02="!" key03="108:c:34" key04="'" key05=":" key06=";" key07="," key08="?" key09="162:c:8"/>
+-					<row4 key01="162:layout1" key02="/" key03="540: " key04="." key05="162:action"/>
++					<row2 key01="120:" key02="@" key03="#" key04="$" key05="%" key06="&amp;" key07="*" key08="-" key09="+" key10="_" key11="120:"/>
++					<row3 key01="360:layout4" key02="!" key03="240:c:34" key04="'" key05=":" key06=";" key07="," key08="?" key09="360:c:8"/>
++					<row4 key01="360:layout1" key02="/" key03="1200: " key04="." key05="360:action"/>
+ 					<keylabel key="0:layout1" text="ABC"/>
+ 					<keylabel key="0:layout4" text="~\{"/>
+ 				</layout3>
+ 				<layout4>
+-					<keysize height="161" width="108"/>
++					<keysize height="100" width="240"/>
+ 					<row1 key01="1" key02="2" key03="3" key04="4" key05="5" key06="6" key07="7" key08="8" key09="9" key10="0"/>
+-					<row2 key01="54:" key02="{" key03="}" key04="[" key05="]" key06="(" key07=")" key08="&lt;" key09="&gt;" key10="|" key11="54:"/>
+-					<row3 key01="162:layout3" key02="%" key03="^" key04="=" key05="\" key06="~" key07="`" key08="?" key09="162:c:8"/>
+-					<row4 key01="162:layout1" key02="/" key03="540: " key04="." key05="162:action"/>
++					<row2 key01="120:" key02="{" key03="}" key04="[" key05="]" key06="(" key07=")" key08="&lt;" key09="&gt;" key10="|" key11="120:"/>
++					<row3 key01="360:layout3" key02="%" key03="^" key04="=" key05="\" key06="~" key07="`" key08="?" key09="360:c:8"/>
++					<row4 key01="360:layout1" key02="/" key03="1200: " key04="." key05="360:action"/>
+ 					<keylabel key="0:layout1" text="ABC"/>
+ 					<keylabel key="0:layout3" text="?123"/>
+ 				</layout4>
+@@ -122,7 +122,7 @@
+ 		<template name="keyboardnum">
+ 			<keyboard>
+ 				<condition var1="tw_hide_kb" var2="0"/>
+-				<placement x="0" y="%keyboard_y%"/>
++				<placement x="0" y="%keyboard_num_y%" w="%screen_w%" h="400"/>
+ 				<background color="%keyboard_bg%"/>
+ 				<key-alphanumeric color="%keyboard_bg%" font="keylabel-num" textcolor="%text%"/>
+ 				<highlight color="%keyboard_hl%"/>
+@@ -130,11 +130,11 @@
+ 				<keylabel key="0:action" text="" resource="enter" alt="enter_num_new"/>
+ 				<layout resource="keyback_num"/>
+ 				<layout1>
+-					<keysize height="160" width="212"/>
+-					<row1 key01="225:" key02="1" key03="2" key04="3" key05="225:"/>
+-					<row2 key01="225:" key02="4" key03="5" key04="6" key05="225:"/>
+-					<row3 key01="225:" key02="7" key03="8" key04="9" key05="225:"/>
+-					<row4 key01="225:" key02="212:c:8" key03="0" key04="214:action" key05="225:"/>
++					<keysize height="100" width="300"/>
++					<row1 key01="750:" key02="1" key03="2" key04="3" key05="750:"/>
++					<row2 key01="750:" key02="4" key03="5" key04="6" key05="750:"/>
++					<row3 key01="750:" key02="7" key03="8" key04="9" key05="750:"/>
++					<row4 key01="750:" key02="300:c:8" key03="0" key04="300:action" key05="750:"/>
+ 				</layout1>
+ 			</keyboard>
+ 
+diff --git a/gui/theme/portrait_hdpi/resources/images.xml b/gui/theme/portrait_hdpi/resources/images.xml
+index 94e5bc2d..2b7168b9 100644
+--- a/gui/theme/portrait_hdpi/resources/images.xml
++++ b/gui/theme/portrait_hdpi/resources/images.xml
+@@ -114,7 +114,7 @@
+ 		<image name="actionbar_show" filename="Default/Other/show" retainaspect="1"/>
+ 		<image name="actionbar_clear" filename="Default/Other/actionbar_clear" retainaspect="1"/>
+ 		<image name="empty_folder" filename="Default/FullscreenIcons/empty_folder" retainaspect="1"/>
+-		<image name="fox_lock" filename="Default/FullscreenIcons/fox_lock" retainaspect="1"/>
++		<image name="fox_lock" filename="Default/FullscreenIcons/fox_lock" retainaspect="1" scale="0.35"/>
+ 		<image name="empty_box" filename="Default/FullscreenIcons/box" retainaspect="1"/>
+ 		
+ 		<!-- About -->
+diff --git a/gui/theme/portrait_hdpi/resources/styles.xml b/gui/theme/portrait_hdpi/resources/styles.xml
+index 1ad2a644..6679b201 100644
+--- a/gui/theme/portrait_hdpi/resources/styles.xml
++++ b/gui/theme/portrait_hdpi/resources/styles.xml
+@@ -183,7 +183,7 @@
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="%col1_x_caption%" h="68" padding="18"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -194,7 +194,7 @@
+ 			<background color="%background%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false"/>
+-			<iconsize w="100" h="52" padding="10"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+@@ -210,7 +210,7 @@
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="radio_true" unselected="radio_false" />
+-			<iconsize w="100" h="52" padding="12"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 		
+@@ -241,7 +241,7 @@
+ 			<group arrowresource="arrow_r" color="%groupitems_clr%"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+-			<iconsize w="160" h="%bl_h1%" padding="16"/>
++			<iconsize w="160" h="%bl_h1%" padding="20"/>
+ 			<font resource="button" spacing="%fileselector_spacing%" color="%text_menu%"/>
+ 		</style>
+ 
+@@ -261,29 +261,29 @@
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="checkbox_true" unselected="checkbox_false" />
+-			<iconsize w="100" h="52" padding="10"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+ 		<style name="partitionlist_dialog">
+ 			<background color="%background%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="20" bottom="20"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="radio_true" unselected="radio_false" />
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text_menu%"/>
+-			<iconsize w="216" h="%bl_h1%" padding="24"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 		</style>
+ 
+ 		<style name="partitionlist_radio">
+ 			<background color="%background%"/>
+ 			<group color="%groupitems_clr%"/>
+-			<padding top="40" bottom="40"/>
++			<padding top="20" bottom="20"/>
+ 			<highlight color="%highlight_color_full%"/>
+ 			<fastscroll rectcolor="%accent%" w="%fastscroll_w%" rectw="%fastscroll_rectw%" recth="%fastscroll_recth%" />
+ 			<icon selected="radio_true" unselected="radio_false" />
+-			<iconsize w="%col1_x_caption%" h="90" padding="25"/>
++			<iconsize w="110" h="72" padding="10"/>
+ 			<font resource="body1" spacing="%fileselector_spacing%" color="%text%" />
+ 		</style>
+ 
+diff --git a/gui/theme/portrait_hdpi/resources/vars.xml b/gui/theme/portrait_hdpi/resources/vars.xml
+index b13f592c..076f81c3 100644
+--- a/gui/theme/portrait_hdpi/resources/vars.xml
++++ b/gui/theme/portrait_hdpi/resources/vars.xml
+@@ -185,16 +185,28 @@
+ 		<variable name="flash_img_part" value="%screen_min_cut%-460"/>
+ 		<variable name="restore_part" value="%screen_min_cut%-460"/>
+ 
+-		<!-- Workshop -->
+-		<variable name="ws_cards_y1" value="180"/>
+-		<variable name="ws_cards_y2" value="340"/>
+-		<variable name="ws_cards_y3" value="500"/>
+-		<variable name="ws_cards_y4" value="660"/>
+-		<variable name="ws_cards_y5" value="820"/>
+-		<variable name="ws_cards_x1" value="156"/>
+-		<variable name="ws_cards_x2" value="412"/>
+-		<variable name="ws_cards_x3" value="668"/>
+-		<variable name="ws_cards_x4" value="924"/>
++		<!-- Workshop / Themes (Landscape 2400x1080: Themes Left, Accents Right) -->
++		<!-- Themes (Left Column) -->
++		<variable name="ws_theme_x1" value="220"/>
++		<variable name="ws_theme_x2" value="520"/>
++		<variable name="ws_theme_y1" value="250"/>
++		<variable name="ws_theme_y2" value="520"/>
++		<variable name="ws_theme_y3" value="780"/>
++		<variable name="ws_theme_label_y1" value="380"/>
++		<variable name="ws_theme_label_y2" value="650"/>
++		<variable name="ws_theme_label_y3" value="910"/>
++
++		<!-- Accents (Right Column) -->
++		<variable name="ws_accent_x1" value="980"/>
++		<variable name="ws_accent_x2" value="1330"/>
++		<variable name="ws_accent_x3" value="1680"/>
++		<variable name="ws_accent_x4" value="2030"/>
++		<variable name="ws_accent_y1" value="250"/>
++		<variable name="ws_accent_y2" value="520"/>
++		<variable name="ws_accent_y3" value="780"/>
++		<variable name="ws_accent_label_y1" value="380"/>
++		<variable name="ws_accent_label_y2" value="650"/>
++		<variable name="ws_accent_label_y3" value="910"/>
+ 		
+ 		<!-- Splash -->
+ 		<variable name="spl_preview_h" value="360"/>
+@@ -250,12 +262,12 @@
+ 		<variable name="warn_center2_y" value="%center_y%+40"/>
+ 		
+ 		<!-- button list height -->
+-		<variable name="bl_h1" value="64"/>
+-		<variable name="bl_h2" value="128"/>
+-		<variable name="bl_h3" value="192"/>
+-		<variable name="bl_h4" value="256"/>
+-		<variable name="bl_h5" value="320"/>
+-		<variable name="bl_h6" value="384"/>
++		<variable name="bl_h1" value="80"/>
++		<variable name="bl_h2" value="160"/>
++		<variable name="bl_h3" value="240"/>
++		<variable name="bl_h4" value="320"/>
++		<variable name="bl_h5" value="400"/>
++		<variable name="bl_h6" value="480"/>
+ 		
+ 		<variable name="bl_fullscreen_h" value="%screen_min_cut%-280"/>
+ 		<variable name="bl_files_h" value="%screen_min_cut%-280"/>
+@@ -290,7 +302,7 @@
+ 		<variable name="chtxt_y" value="250"/>
+ 		<variable name="chtxt_sph_y" value="540"/>
+ 
+-		<!-- About -->
++		<!-- About: 2400x1080 landscape 2x2 card grid (Yan/fd top row, Jabba/maintainer bottom row) -->
+ 		<variable name="about_title_h" value="260"/>
+ 		<variable name="tab_title_h" value="125"/>
+ 		<variable name="tab_btn_y" value="55"/>
+@@ -298,45 +310,61 @@
+ 		<variable name="about_logo_y" value="130"/>
+ 		<variable name="about_logo_x" value="96"/>
+ 		<variable name="about_txt_x" value="370"/>
+-		<variable name="about_txt2_y" value="180"/>
+-		<variable name="about_txt3_y" value="215"/>
+-		<variable name="about_txt4_y" value="250"/>
+-		
+-		<variable name="cardtxt_1" value="340"/>
+-		<variable name="cardtxt_2" value="375"/>
+-		<variable name="cardtxt_3" value="490"/>
+-		<variable name="cardtxt_4" value="525"/>
+-		<variable name="cardtxt_5" value="640"/>
+-		<variable name="cardtxt_6" value="675"/>
+-		<variable name="cardtxt_7" value="790"/>
+-		<variable name="cardtxt_8" value="825"/>
+-		
+-		<variable name="card1_y" value="280"/>
+-		<variable name="card2_y" value="430"/>
+-		<variable name="card3_y" value="580"/>
+-		<variable name="card4_y" value="730"/>
+-		<variable name="card4_btn_y" value="860"/>
+-		
++		<variable name="about_txt2_y" value="190"/>
++		<variable name="about_txt3_y" value="230"/>
++		<variable name="about_txt4_y" value="270"/>
++
++		<!-- Row Y anchors -->
++		<variable name="card_row1_y" value="320"/>
++		<variable name="card_row2_y" value="660"/>
++
++		<!-- Column X anchors -->
++		<variable name="card_col1_x" value="0"/>
++		<variable name="card_col2_x" value="1220"/>
++		<variable name="card_img_x" value="72"/>
++		<variable name="card_img_col2_x" value="1292"/>
++		<variable name="card_txt_x" value="300"/>
++		<variable name="card_txt_col2_x" value="1520"/>
++
++		<variable name="cardtxt_1" value="430"/>
++		<variable name="cardtxt_2" value="475"/>
++		<variable name="cardtxt_3" value="430"/>
++		<variable name="cardtxt_4" value="475"/>
++		<variable name="cardtxt_5" value="770"/>
++		<variable name="cardtxt_6" value="815"/>
++		<variable name="cardtxt_7" value="770"/>
++		<variable name="cardtxt_8" value="815"/>
++
++		<variable name="card1_y" value="%card_row1_y%"/>
++		<variable name="card2_y" value="%card_row1_y%"/>
++		<variable name="card3_y" value="%card_row2_y%"/>
++		<variable name="card4_y" value="%card_row2_y%"/>
++
+ 		<variable name="card1_mtag_x" value="744"/>
++		<variable name="card_mtag_col2_x" value="1964"/>
+ 		<variable name="card1_ctag_x" value="748"/>
+-		<variable name="card1_mtag_y" value="315"/>
+-		<variable name="card2_mtag_y" value="465"/>
+-		<variable name="card3_mtag_y" value="615"/>
+-		<variable name="card4_mtag_y" value="765"/>
++		<variable name="card1_mtag_y" value="355"/>
++		<variable name="card2_mtag_y" value="355"/>
++		<variable name="card3_mtag_y" value="695"/>
++		<variable name="card4_mtag_y" value="695"/>
+ 		<variable name="card1_ctag_y" value="319"/>
+ 		<variable name="card2_ctag_y" value="469"/>
+ 		<variable name="card3_ctag_y" value="619"/>
+ 		<variable name="card4_ctag_y" value="769"/>
+ 
+-		<variable name="card_img1_y" value="325"/>
+-		<variable name="card_img2_y" value="475"/>
+-		<variable name="card_img3_y" value="625"/>
+-		<variable name="card_img4_y" value="775"/>
+-		
+-		<variable name="card_txt_x" value="300"/>
+-		<variable name="card_img_x" value="72"/>
+-		
+-		<variable name="btn_float_center_y" value="%screen_h%-150"/>
++		<variable name="card_img1_y" value="365"/>
++		<variable name="card_img2_y" value="365"/>
++		<variable name="card_img3_y" value="705"/>
++		<variable name="card_img4_y" value="705"/>
++
++		<!-- Alternate "more/credits" button (shown only when maintainer is unrecognized) -->
++		<variable name="card4_btn_x" value="%card_txt_col2_x%"/>
++		<variable name="card4_btn_y" value="815"/>
++
++		<!-- Floating credits FAB moved to top-right (no room below the 2x2 card grid) -->
++		<variable name="about_fab_x" value="%screen_w%-160"/>
++		<variable name="about_fab_y" value="150"/>
++		<variable name="btn_float_center_y" value="%about_fab_y%"/>
+ 		
+ 		<!-- NavBar -->
+ 		<variable name="row_nav_text_y" value="%row_nav_y%+%bs_text_offset%"/>
+@@ -371,16 +399,16 @@
+ 		<variable name="lb_l14" value="952"/>
+ 		<variable name="lb_l15" value="1020"/>
+ 
+-		<variable name="lb_group_l1" value="64"/>
+-		<variable name="lb_group_l2" value="120"/>
+-		<variable name="lb_group_l3" value="176"/>
+-		<variable name="lb_group_l4" value="232"/>
+-		<variable name="lb_group_l5" value="288"/>
+-		<variable name="lb_group_l6" value="344"/>
+-		<variable name="lb_group_l7" value="400"/>
+-		<variable name="lb_group_l8" value="456"/>
+-		<variable name="lb_group_l9" value="512"/>
+-		<variable name="lb_group_l10" value="568"/>
++				<variable name="lb_group_l1" value="80"/>
++		<variable name="lb_group_l2" value="152"/>
++		<variable name="lb_group_l3" value="224"/>
++		<variable name="lb_group_l4" value="296"/>
++		<variable name="lb_group_l5" value="368"/>
++		<variable name="lb_group_l6" value="440"/>
++		<variable name="lb_group_l7" value="512"/>
++		<variable name="lb_group_l8" value="584"/>
++		<variable name="lb_group_l9" value="656"/>
++		<variable name="lb_group_l10" value="728"/>
+ 
+ 				<!-- Status Bar -->
+ 		<variable name="status_info_y" value="8"/>
+@@ -404,19 +432,19 @@
+ 		<variable name="fileselector_spacing" value="0"/>
+ 		
+ 		<!-- Title / Title buttons -->
+-		<variable name="search_files_h" value="%screen_min_cut%-300"/>
+-		<variable name="search_files_y" value="175"/>
+-		<variable name="search_bar_y" value="48"/>
+-		<variable name="search_bar_bg_y" value="52"/>
+-		<variable name="search_bar_line_y" value="132"/>
++		<variable name="search_files_h" value="%screen_min_cut%-320"/>
++		<variable name="search_files_y" value="195"/>
++		<variable name="search_bar_y" value="60"/>
++		<variable name="search_bar_bg_y" value="64"/>
++		<variable name="search_bar_line_y" value="148"/>
+ 		<variable name="search_bar_w" value="%screen_w%-96"/>
+-		<variable name="path_text_y" value="142"/>
+-		<variable name="path_y" value="136"/>
+-		<variable name="path_arrow_y" value="148"/>
+-		<variable name="ab_search_y" value="78"/>
+-		<variable name="ab_search_text_y" value="74"/>
+-		<variable name="fm_sort_x" value="%screen_w%-264"/>
+-		<variable name="fm_menu_x" value="%screen_w%-126"/>
++		<variable name="path_text_y" value="158"/>
++		<variable name="path_y" value="152"/>
++		<variable name="path_arrow_y" value="164"/>
++		<variable name="ab_search_y" value="104"/>
++		<variable name="ab_search_text_y" value="94"/>
++		<variable name="fm_sort_x" value="%screen_w%-260"/>
++		<variable name="fm_menu_x" value="%screen_w%-140"/>
+ 
+ 		<variable name="ab_bc_double_u_y" value="54"/>
+ 		<variable name="ab_bc_double_d_y" value="98"/>
+@@ -431,14 +459,14 @@
+ 		<variable name="ab_btn02_x" value="%screen_w%-468"/>
+ 		
+ 		<variable name="ab_back_x" value="84"/>
+-		<variable name="ab_bc_y" value="68"/>
++		<variable name="ab_bc_y" value="70"/>
+ 		<variable name="ab_bc_fox_y" value="54"/>
+ 		<variable name="ab_bc_search_y" value="56"/>
+ 		<variable name="ab_bc2_y" value="140"/>
+ 		<variable name="ab_bc3_y" value="240"/>
+ 		<variable name="ab_h" value="125"/>
+-		<variable name="ab_ex_h" value="150"/>
+-		<variable name="row_ab_ex_y" value="150"/>
++		<variable name="ab_ex_h" value="195"/>
++		<variable name="row_ab_ex_y" value="195"/>
+ 		<variable name="ab_btn_h" value="85"/>
+ 		
+ 		<variable name="tab_w" value="312"/>
+@@ -498,10 +526,10 @@
+ 		<variable name="progressbar_y" value="150"/>
+ 		
+ 		<!-- Keyboard -->
+-		<variable name="keyboard_y" value="%screen_h%-480"/>
+-		<variable name="keyboard_terminal_y" value="%screen_h%-550"/>
+-		<variable name="keyboard_num_y" value="%screen_h%-560"/>
+-		<variable name="keyboard_term_num_y" value="%screen_h%-620"/>
++		<variable name="keyboard_y" value="%screen_h%-400"/>
++		<variable name="keyboard_terminal_y" value="%screen_h%-480"/>
++		<variable name="keyboard_num_y" value="%screen_h%-400"/>
++		<variable name="keyboard_term_num_y" value="%screen_h%-480"/>
+ 		
+ 		<!-- Input fields -->
+ 		<variable name="input_encr_width" value="696"/>
+@@ -600,58 +628,74 @@
+ 		<variable name="gst_keyboard_y" value="%keyboard_y%-%ab_h%"/>
+ 		<variable name="gst_line_y" value="%screen_h%-75"/>
+ 		
+-		<!-- Rows -->
+-		<variable name="row0_y" value="115"/>
+-		<variable name="row0_a_y" value="130"/>
+-		<variable name="row1_1_y" value="145"/>
+-		<variable name="row1_1a_y" value="160"/>
++				<!-- Rows with spacious landscape vertical spacing -->
++		<variable name="row0_y" value="120"/>
++		<variable name="row0_a_y" value="125"/>
++
++		<!-- Section 1: Y 125 to 300 -->
++		<variable name="row1_1_y" value="130"/>
++		<variable name="row1_1a_y" value="170"/>
+ 		<variable name="row1_2_y" value="175"/>
+-		<variable name="row1_2a_y" value="190"/>
+-		<variable name="row1_3_y" value="205"/>
+-		<variable name="row1_3a_y" value="220"/>
+-		<variable name="row2_1_y" value="235"/>
+-		<variable name="row2_1a_y" value="250"/>
+-		<variable name="row2_2_y" value="265"/>
+-		<variable name="row2_2a_y" value="280"/>
+-		<variable name="row2_3_y" value="295"/>
+-		<variable name="row2_3a_y" value="310"/>
+-		<variable name="row3_1_y" value="325"/>
+-		<variable name="row3_1a_y" value="340"/>
+-		<variable name="row3_2_y" value="355"/>
+-		<variable name="row3_2a_y" value="370"/>
+-		<variable name="row3_3_y" value="385"/>
+-		<variable name="row3_3a_y" value="400"/>
+-		<variable name="row4_1_y" value="420"/>
+-		<variable name="row4_1a_y" value="440"/>
+-		<variable name="row4_2_y" value="460"/>
+-		<variable name="row4_2a_y" value="480"/>
+-		<variable name="row4_3_y" value="500"/>
+-		<variable name="row4_3a_y" value="520"/>
+-		<variable name="row5_1_y" value="540"/>
+-		<variable name="row5_1a_y" value="560"/>
+-		<variable name="row5_2_y" value="580"/>
+-		<variable name="row5_2a_y" value="600"/>
+-		<variable name="row5_3_y" value="620"/>
+-		<variable name="row5_3a_y" value="640"/>
+-		<variable name="row6_1_y" value="660"/>
+-		<variable name="row6_1a_y" value="680"/>
+-		<variable name="row6_2_y" value="700"/>
+-		<variable name="row6_2a_y" value="720"/>
+-		<variable name="row6_3_y" value="740"/>
+-		<variable name="row6_3a_y" value="760"/>
++		<variable name="row1_2a_y" value="215"/>
++		<variable name="row1_3_y" value="260"/>
++		<variable name="row1_3a_y" value="295"/>
++
++		<!-- Section 2: Y 340 to 500 -->
++		<variable name="row2_1_y" value="340"/>
++		<variable name="row2_1a_y" value="340"/>
++		<variable name="row2_2_y" value="395"/>
++		<variable name="row2_2a_y" value="430"/>
++		<variable name="row2_3_y" value="460"/>
++		<variable name="row2_3a_y" value="495"/>
++
++		<!-- Section 3: Y 525 to 885 -->
++		<variable name="row3_1_y" value="525"/>
++		<variable name="row3_1a_y" value="525"/>
++		<variable name="row3_2_y" value="570"/>
++		<variable name="row3_2a_y" value="570"/>
++		<variable name="row3_3_y" value="665"/>
++		<variable name="row3_3a_y" value="700"/>
++
++		<!-- Section 4: Y 730 to 895 -->
++		<variable name="row4_1_y" value="730"/>
++		<variable name="row4_1a_y" value="765"/>
++		<variable name="row4_2_y" value="800"/>
++		<variable name="row4_2a_y" value="835"/>
++		<variable name="row4_3_y" value="865"/>
++		<variable name="row4_3a_y" value="900"/>
++
++		<!-- Section 5 -->
++		<variable name="row5_1_y" value="530"/>
++		<variable name="row5_1a_y" value="565"/>
++		<variable name="row5_2_y" value="600"/>
++		<variable name="row5_2a_y" value="635"/>
++		<variable name="row5_3_y" value="665"/>
++		<variable name="row5_3a_y" value="700"/>
++
++		<!-- Section 6 -->
++		<variable name="row6_1_y" value="730"/>
++		<variable name="row6_1a_y" value="765"/>
++		<variable name="row6_2_y" value="800"/>
++		<variable name="row6_2a_y" value="835"/>
++		<variable name="row6_3_y" value="865"/>
++		<variable name="row6_3a_y" value="900"/>
++
++		<!-- Section 7 -->
+ 		<variable name="row7_1_y" value="780"/>
+-		<variable name="row7_1a_y" value="800"/>
+-		<variable name="row7_2_y" value="820"/>
+-		<variable name="row7_2a_y" value="840"/>
+-		<variable name="row7_3_y" value="860"/>
+-		<variable name="row7_3a_y" value="880"/>
+-		<variable name="row8_1_y" value="900"/>
+-		<variable name="row8_1a_y" value="920"/>
+-		<variable name="row8_2_y" value="940"/>
+-		<variable name="row8_2a_y" value="960"/>
+-		<variable name="row8_3_y" value="980"/>
+-		<variable name="row8_3a_y" value="1000"/>
+-		<variable name="row9_1_y" value="1020"/>
++		<variable name="row7_1a_y" value="815"/>
++		<variable name="row7_2_y" value="850"/>
++		<variable name="row7_2a_y" value="880"/>
++		<variable name="row7_3_y" value="910"/>
++		<variable name="row7_3a_y" value="935"/>
++
++		<!-- Section 8 -->
++		<variable name="row8_1_y" value="880"/>
++		<variable name="row8_1a_y" value="910"/>
++		<variable name="row8_2_y" value="930"/>
++		<variable name="row8_2a_y" value="950"/>
++		<variable name="row8_3_y" value="970"/>
++		<variable name="row8_3a_y" value="990"/>
++		<variable name="row9_1_y" value="1010"/>
+ 		
+ 		<!-- Group list -->
+ 		<variable name="gl_text_x" value="60"/>
+diff --git a/gui/theme/portrait_hdpi/splash.xml b/gui/theme/portrait_hdpi/splash.xml
+index 76b06eb5..9cb95482 100644
+--- a/gui/theme/portrait_hdpi/splash.xml
++++ b/gui/theme/portrait_hdpi/splash.xml
+@@ -17,8 +17,10 @@
+ 	</resources>
+ 
+ 	<variables>
+-		<variable name="of" value="%screen_h%-400"/>
+-		<variable name="rec" value="%screen_h%-320"/>
++		<variable name="center_x" value="1200"/>
++		<variable name="center_y" value="540"/>
++		<variable name="of" value="700"/>
++		<variable name="rec" value="780"/>
+ 		<variable name="screen_width" value="2400"/>
+ 		<variable name="screen_height" value="1080"/>
+ 		<variable name="header_color" value="#000000"/>
+@@ -35,22 +37,22 @@
+ 
+ 			<image>
+ 				<image resource="splash_bg"/>
+-				<placement x="540" y="%center_y%" placement="4"/>
++				<placement x="%center_x%" y="460" placement="4"/>
+ 			</image>
+ 
+ 			<image>
+ 				<image resource="splash_logo"/>
+-				<placement x="540" y="%center_y%" placement="4"/>
++				<placement x="%center_x%" y="460" placement="4"/>
+ 			</image>
+ 
+ 			<text style="menu_text">
+-				<placement x="540" y="%of%" placement="4"/>
++				<placement x="%center_x%" y="%of%" placement="4"/>
+ 				<font resource="of" color="#ffffff"/>
+ 				<text>OrangeFox</text>
+ 			</text>
+ 
+ 			<text style="menu_text">
+-				<placement x="540" y="%rec%" placement="4"/>
++				<placement x="%center_x%" y="%rec%" placement="4"/>
+ 				<font resource="recovery" color="#ffffff"/>
+ 				<text>Recovery</text>
+ 			</text>
+diff --git a/gui/theme/portrait_hdpi/themes/font.xml b/gui/theme/portrait_hdpi/themes/font.xml
+index d2c956d4..28c52fc0 100644
+--- a/gui/theme/portrait_hdpi/themes/font.xml
++++ b/gui/theme/portrait_hdpi/themes/font.xml
+@@ -1,36 +1,36 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<resources>
+-		<font name="status" filename="GoogleSans-Medium.ttf" size="20"/>
+-		<font name="bigfont" filename="Roboto-Medium.ttf" size="28"/>
+-		<font name="body1" filename="Roboto-Regular.ttf" size="22"/>
+-		<font name="body2" filename="Roboto-Medium.ttf" size="22"/>
+-		<font name="subhead" filename="Roboto-Regular.ttf" size="24"/>
+-		<font name="title" filename="Roboto-Medium.ttf" size="28"/>
+-		<font name="mainbutton" filename="Roboto-Regular.ttf" size="28"/>
+-		<font name="button" filename="Roboto-Medium.ttf" size="22"/>
+-		<font name="menu" filename="Roboto-Medium.ttf" size="22"/>
+-		<font name="input_fail" filename="Roboto-Medium.ttf" size="20"/>
+-		<font name="splash" filename="Roboto-Medium.ttf" size="28"/>
++		<font name="status" filename="GoogleSans-Medium.ttf" size="32"/>
++		<font name="bigfont" filename="Roboto-Medium.ttf" size="40"/>
++		<font name="body1" filename="Roboto-Regular.ttf" size="32"/>
++		<font name="body2" filename="Roboto-Medium.ttf" size="32"/>
++		<font name="subhead" filename="Roboto-Regular.ttf" size="38"/>
++		<font name="title" filename="Roboto-Medium.ttf" size="44"/>
++		<font name="mainbutton" filename="Roboto-Regular.ttf" size="44"/>
++		<font name="button" filename="Roboto-Medium.ttf" size="32"/>
++		<font name="menu" filename="Roboto-Medium.ttf" size="34"/>
++		<font name="input_fail" filename="Roboto-Medium.ttf" size="26"/>
++		<font name="splash" filename="Roboto-Medium.ttf" size="38"/>
+ 
+-		<font name="font_l" filename="Roboto-Medium.ttf" size="28"/>
+-		<font name="font_m" filename="Roboto-Medium.ttf" size="22"/>
+-		<font name="font_s" filename="Roboto-Medium.ttf" size="20"/>
+-		<font name="font_b" filename="Roboto-Medium.ttf" size="100"/>
++		<font name="font_l" filename="Roboto-Medium.ttf" size="40"/>
++		<font name="font_m" filename="Roboto-Medium.ttf" size="32"/>
++		<font name="font_s" filename="Roboto-Medium.ttf" size="26"/>
++		<font name="font_b" filename="Roboto-Medium.ttf" size="140"/>
+ 
+-		<font name="keylabel" filename="Roboto-Regular.ttf" size="32"/>
+-		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="26"/>
+-		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="36"/>
+-		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="22"/>
+-		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="18"/>
++		<font name="keylabel" filename="Roboto-Regular.ttf" size="48"/>
++		<font name="keylabel-bold" filename="Roboto-Medium.ttf" size="36"/>
++		<font name="keylabel-num" filename="Roboto-Regular.ttf" size="54"/>
++		<font name="keylabel-small" filename="Roboto-Regular.ttf" size="34"/>
++		<font name="keylabel-longpress" filename="Roboto-Regular.ttf" size="24"/>
+ 		
+-		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="20"/>
+-		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="18"/>
+-		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="28"/>
+-		<font name="caption" filename="GoogleSans-Medium.ttf" size="18"/>
++		<font name="Secondary" filename="GoogleSans-Medium.ttf" size="32"/>
++		<font name="Secondary-navbar" filename="GoogleSans-Medium.ttf" size="28"/>
++		<font name="Secondary-title" filename="GoogleSans-Medium.ttf" size="44"/>
++		<font name="caption" filename="GoogleSans-Medium.ttf" size="26"/>
+ 		
+-		<font name="clock" filename="GoogleSans-Regular.ttf" size="100"/>
+-		<font name="info" filename="GoogleSans-Medium.ttf" size="24"/>
++		<font name="clock" filename="GoogleSans-Regular.ttf" size="160"/>
++		<font name="info" filename="GoogleSans-Medium.ttf" size="36"/>
+ 	</resources>
+ 	
+ 	<variables>
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_b.xml b/gui/theme/portrait_hdpi/themes/sed/font_b.xml
+index e69d9faa..2a2b6c31 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_b.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_b.xml
+@@ -1,36 +1,36 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="24"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="30"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="35"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="37"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="32"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="38"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="44"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="44"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="34"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="38"/>
+ 
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="30"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="112"/>
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="140"/>
+ 
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="36"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="41"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="26"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="20"/>
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="48"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="54"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="34"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="24"/>
+ 		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="25"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="28"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="44"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="26"/>
+ 		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="160"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+ 	</resources>
+ 	
+ 	<variables>
+@@ -39,4 +39,4 @@
+ 		<variable name="theme_font_size" value="b"/>
+ 		<variable name="theme_font_weight" value="#WEIGHT#"/>
+ 	</variables>
+-</recovery>
+\ No newline at end of file
++</recovery>
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_n.xml b/gui/theme/portrait_hdpi/themes/sed/font_n.xml
+index 12eeefa8..d503e025 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_n.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_n.xml
+@@ -1,36 +1,36 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="22"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="23"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="28"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="33"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="24"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="17"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="32"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="38"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="44"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="44"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="34"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="38"/>
+ 
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="28"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="110"/>
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="140"/>
+ 
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="39"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="17"/>
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="48"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="54"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="34"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="24"/>
+ 		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="23"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="31"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="28"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="44"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="26"/>
+ 		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="160"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+ 	</resources>
+ 	
+ 	<variables>
+@@ -39,4 +39,4 @@
+ 		<variable name="theme_font_size" value="n"/>
+ 		<variable name="theme_font_weight" value="#WEIGHT#"/>
+ 	</variables>
+-</recovery>
+\ No newline at end of file
++</recovery>
+diff --git a/gui/theme/portrait_hdpi/themes/sed/font_s.xml b/gui/theme/portrait_hdpi/themes/sed/font_s.xml
+index 62c66749..8461cd5a 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/font_s.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/font_s.xml
+@@ -1,36 +1,36 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<resources>
+-		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
+-		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="22"/>
+-		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="18"/>
+-		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="18"/>
+-		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="23"/>
+-		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="29"/>
+-		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="30"/>
+-		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
+-		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="24"/>
+-		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="17"/>
+-		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
++		<font name="status" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="bigfont" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="body1" filename="#PRIMARY_FONT_REG#.ttf" size="32"/>
++		<font name="body2" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="subhead" filename="#PRIMARY_FONT_REG#.ttf" size="38"/>
++		<font name="title" filename="#PRIMARY_FONT_MED#.ttf" size="44"/>
++		<font name="mainbutton" filename="#PRIMARY_FONT_REG#.ttf" size="44"/>
++		<font name="button" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="menu" filename="#PRIMARY_FONT_MED#.ttf" size="34"/>
++		<font name="input_fail" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="splash" filename="#PRIMARY_FONT_MED#.ttf" size="38"/>
+ 
+-		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="28"/>
+-		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="23"/>
+-		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="19"/>
+-		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="110"/>
++		<font name="font_l" filename="#PRIMARY_FONT_MED#.ttf" size="40"/>
++		<font name="font_m" filename="#PRIMARY_FONT_MED#.ttf" size="32"/>
++		<font name="font_s" filename="#PRIMARY_FONT_MED#.ttf" size="26"/>
++		<font name="font_b" filename="#PRIMARY_FONT_MED#.ttf" size="140"/>
+ 
+-		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="35"/>
+-		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="25"/>
+-		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="39"/>
+-		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="25"/>
+-		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="17"/>
++		<font name="keylabel" filename="#PRIMARY_FONT_REG#.ttf" size="48"/>
++		<font name="keylabel-bold" filename="#PRIMARY_FONT_MED#.ttf" size="36"/>
++		<font name="keylabel-num" filename="#PRIMARY_FONT_REG#.ttf" size="54"/>
++		<font name="keylabel-small" filename="#PRIMARY_FONT_REG#.ttf" size="34"/>
++		<font name="keylabel-longpress" filename="#PRIMARY_FONT_REG#.ttf" size="24"/>
+ 		
+-		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="20"/>
+-		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="19"/>
+-		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="31"/>
+-		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="16"/>
++		<font name="Secondary" filename="#SECONDARY_FONT_MED#.ttf" size="32"/>
++		<font name="Secondary-navbar" filename="#SECONDARY_FONT_MED#.ttf" size="28"/>
++		<font name="Secondary-title" filename="#SECONDARY_FONT_MED#.ttf" size="44"/>
++		<font name="caption" filename="#SECONDARY_FONT_MED#.ttf" size="26"/>
+ 		
+-		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="132"/>
+-		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="27"/>
++		<font name="clock" filename="#SECONDARY_FONT_REG#.ttf" size="160"/>
++		<font name="info" filename="#SECONDARY_FONT_MED#.ttf" size="36"/>
+ 	</resources>
+ 	
+ 	<variables>
+@@ -39,4 +39,4 @@
+ 		<variable name="theme_font_size" value="s"/>
+ 		<variable name="theme_font_weight" value="#WEIGHT#"/>
+ 	</variables>
+-</recovery>
+\ No newline at end of file
++</recovery>
+diff --git a/gui/theme/portrait_hdpi/themes/sed/splash.xml b/gui/theme/portrait_hdpi/themes/sed/splash.xml
+index 18f39e44..16da0c4d 100644
+--- a/gui/theme/portrait_hdpi/themes/sed/splash.xml
++++ b/gui/theme/portrait_hdpi/themes/sed/splash.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0"?>
+ <recovery>
+ 	<details>
+-		<resolution width="1080"/>
++		<resolution width="2400"/>
+ 		<author>fordownloads (OrangeFox dev team)</author>
+ 		<title>OrangeFox Customizable Splash</title>
+ 		<description>SED Splash</description>
+@@ -16,8 +16,8 @@
+ 	</resources>
+ 
+ 	<#SHOWOFR#variables>
+-		<variable name="of" value="%screen_h%-400"/>
+-		<variable name="rec" value="%screen_h%-320"/>
++		<variable name="of" value="700"/>
++		<variable name="rec" value="780"/>
+ 	</variables#SHOWOFR#>
+ 
+ 	<pages>
+@@ -25,19 +25,19 @@
+ 			<background color="#BG_COLOR#"/>
+ 			<#BG_IMG#image>
+ 				<image resource="splash_bg"/>
+-				<placement x="540" y="%center_y%" placement="4"/>
++				<placement x="1200" y="460" placement="4"/>
+ 			</image#BG_IMG#>
+ 			<#LOGO_ON#image>
+ 				<image resource="splash_logo"/>
+-				<placement x="540" y="%center_y%" placement="4"/>
++				<placement x="1200" y="460" placement="4"/>
+ 			</image#LOGO_ON#>
+ 			<#SHOWOFR#text style="menu_text">
+-				<placement x="540" y="%of%" placement="4"/>
++				<placement x="1200" y="%of%" placement="4"/>
+ 				<font resource="of" color="##TCOLOR#"/>
+ 				<text>OrangeFox</text>
+ 			</text>
+ 			<text style="menu_text">
+-				<placement x="540" y="%rec%" placement="4"/>
++				<placement x="1200" y="%rec%" placement="4"/>
+ 				<font resource="recovery" color="##TCOLOR#"/>
+ 				<text>Recovery</text>
+ 			</text#SHOWOFR#>
+diff --git a/openrecoveryscript.cpp b/openrecoveryscript.cpp
+index ede99946..454a92ac 100755
+--- a/openrecoveryscript.cpp
++++ b/openrecoveryscript.cpp
+@@ -53,6 +53,7 @@
+ #include "fuse_sideload.h"
+ #include "gui/gui.hpp"
+ #include "gui/pages.hpp"
++#include "gui/objects.hpp"
+ #include "orscmd/orscmd.h"
+ #include "twinstall.h"
+ #include "twinstall/adb_install.h"
+@@ -474,6 +475,15 @@ int OpenRecoveryScript::run_script_file(void) {
+ 			} else if (strcmp(command, "reloadtheme") == 0 || strcmp(command, "reload_theme") == 0) {
+ 				LOGINFO("Requesting theme reload via ORS\n");
+ 				PageManager::RequestReload();
++			} else if (strcmp(command, "screenshot") == 0) {
++				LOGINFO("Executing screenshot via ORS\n");
++				GUIAction::screenshotImpl("");
++			} else if (strcmp(command, "page") == 0) {
++				LOGINFO("Navigating to page '%s' via ORS\n", value);
++				gui_changePage(value);
++			} else if (strcmp(command, "overlay") == 0) {
++				LOGINFO("Changing overlay to '%s' via ORS\n", value);
++				gui_changeOverlay(value);
+ 			} else {
+ 				LOGERR("Unrecognized script command: '%s'\n", command);
+ 				ret_val = 1;
+diff --git a/orscmd/orscmd.cpp b/orscmd/orscmd.cpp
+index 7d62b553..91b96ba5 100644
+--- a/orscmd/orscmd.cpp
++++ b/orscmd/orscmd.cpp
+@@ -60,6 +60,9 @@ void print_usage(void) {
+ 	printf("  print <value>\n");
+ 	printf("  mkdir <directory>\n");
+ 	printf("  reboot [recovery|poweroff|bootloader|download|fastboot|edl]\n");
++	printf("  screenshot\n");
++	printf("  page <name>\n");
++	printf("  overlay <name>\n");
+ 	printf("  console_message | console_warning | console_error <message to be displayed>\n");
+ 	printf("\nSee more documentation at https://twrp.me/faq/openrecoveryscript.html\n");
+ }
+-- 
+2.34.1
+
